@@ -254,6 +254,8 @@ public class HiveSplitManager
                 queryInfo,
                 typeManager);
 
+        boolean isOffload = hiveTable.getOffloadExpression().isPresent();
+
         HiveSplitSource splitSource;
         HiveStorageFormat hiveStorageFormat = HiveMetadata.extractHiveStorageFormat(table);
         switch (splitSchedulingStrategy) {
@@ -273,7 +275,8 @@ public class HiveSplitManager
                         userDefinedCachePredicates,
                         typeManager,
                         hiveConfig,
-                        hiveStorageFormat);
+                        hiveStorageFormat,
+                        isOffload);
                 break;
             case GROUPED_SCHEDULING:
                 splitSource = HiveSplitSource.bucketed(
@@ -291,7 +294,8 @@ public class HiveSplitManager
                         userDefinedCachePredicates,
                         typeManager,
                         hiveConfig,
-                        hiveStorageFormat);
+                        hiveStorageFormat,
+                        isOffload);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);

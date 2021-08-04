@@ -2242,7 +2242,8 @@ public class HiveMetadata
                 newHandle.getAnalyzePartitionValues(),
                 predicateColumns,
                 Optional.ofNullable(newEffectivePredicates),
-                isSuitableToPush);
+                isSuitableToPush,
+                newHandle.getOffloadExpression());
 
         if (pushPartitionsOnly && handle.getPartitions().equals(newHandle.getPartitions()) &&
                 handle.getCompactEffectivePredicate().equals(newHandle.getCompactEffectivePredicate()) &&
@@ -2384,7 +2385,8 @@ public class HiveMetadata
                 hiveTable.getAnalyzePartitionValues(),
                 hiveTable.getPredicateColumns(),
                 hiveTable.getDisjunctCompactEffectivePredicate(),
-                hiveTable.isSuitableToPush());
+                hiveTable.isSuitableToPush(),
+                hiveTable.getOffloadExpression());
     }
 
     @VisibleForTesting

@@ -17,6 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.huawei.boostkit.omnidata.block.BlockDeserializer;
+import com.huawei.boostkit.omnidata.model.Predicate;
+import com.huawei.boostkit.omnidata.model.TaskSource;
+import com.huawei.boostkit.omnidata.model.datasource.DataSource;
+import com.huawei.boostkit.omnidata.reader.DataReader;
+import com.huawei.boostkit.omnidata.reader.DataReaderFactory;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
@@ -38,7 +44,9 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.HiveOffloadExpression;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.HiveUtil;
 import io.prestosql.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
@@ -106,6 +114,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcRowDataCacheEn
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcRowIndexCacheEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcStripeFooterCacheEnabled;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
+import static io.prestosql.plugin.hive.util.PageSourceUtil.buildPushdownContext;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
@@ -136,6 +145,7 @@ public class OrcPageSourceFactory
     private final OrcCacheStore orcCacheStore;
     private final int domainCompactionThreshold;
     private final DateTimeZone legacyTimeZone;
+    private String omniDataServerTarget;
 
     @Inject
     public OrcPageSourceFactory(TypeManager typeManager, HiveConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, OrcCacheStore orcCacheStore)
@@ -148,6 +158,67 @@ public class OrcPageSourceFactory
         this.orcCacheStore = orcCacheStore;
         this.domainCompactionThreshold = config.getDomainCompactionThreshold();
         this.legacyTimeZone = requireNonNull(config, "hiveConfig is null").getOrcLegacyDateTimeZone();
+        this.omniDataServerTarget = config.getOmniDataServerTarget();
+    }
+
+    @Override
+    public Optional<? extends ConnectorPageSource> createPageSource(
+            Configuration configuration,
+            ConnectorSession session,
+            Path path,
+            long start,
+            long length,
+            long fileSize,
+            Properties schema,
+            List<HiveColumnHandle> columns,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Optional<DynamicFilterSupplier> dynamicFilters,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations,
+            Optional<Long> startRowOffsetOfFile,
+            Optional<List<IndexMetadata>> indexes,
+            SplitMetadata splitMetadata,
+            boolean splitCacheable,
+            long dataSourceLastModifiedTime,
+            Optional<String> ipuAddress,
+            HiveOffloadExpression expression)
+    {
+        if (!HiveUtil.isDeserializerClass(schema, OrcSerde.class)) {
+            return Optional.empty();
+        }
+
+        if (ipuAddress.isPresent()) {
+            omniDataServerTarget = ipuAddress.get();
+        }
+
+        if (expression.isPresent()) {
+            checkArgument(ipuAddress.isPresent(), "ipuAddress is empty");
+        }
+
+        // todo: add other condition for push down to sdi or not
+        if (HiveSessionProperties.isOmniDataEnabled(session)
+                && ipuAddress.isPresent()
+                && expression.isPresent()) {
+            Predicate predicate = buildPushdownContext(columns, expression, typeManager);
+            return Optional.of(createOrcPushDownPageSource(path, start, length, predicate, stats));
+        }
+
+        return createPageSource(
+                configuration,
+                session,
+                path,
+                start,
+                length,
+                fileSize,
+                schema,
+                columns,
+                effectivePredicate,
+                dynamicFilters,
+                deleteDeltaLocations,
+                startRowOffsetOfFile,
+                indexes,
+                splitMetadata,
+                splitCacheable,
+                dataSourceLastModifiedTime);
     }
 
     @Override
@@ -446,6 +517,36 @@ public class OrcPageSourceFactory
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    public OrcPushDownPageSource createOrcPushDownPageSource(
+            Path path,
+            long start,
+            long length,
+            Predicate predicate,
+            FileFormatDataSourceStats stats)
+    {
+        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+        Properties transProperties = new Properties();
+        transProperties.put("grpc.client.target", omniDataServerTarget);
+
+        DataSource orcPushDownDataSource = new com.huawei.boostkit.omnidata.model.datasource.hdfs.HdfsOrcDataSource(
+                path.toString(),
+                start,
+                length,
+                false);
+
+        TaskSource readTaskInfo = new TaskSource(
+                orcPushDownDataSource,
+                predicate,
+                TaskSource.ONE_MEGABYTES);
+        DataReader dataReader = DataReaderFactory.create(transProperties, readTaskInfo, new BlockDeserializer());
+
+        return new OrcPushDownPageSource(
+                dataReader,
+                orcPushDownDataSource,
+                systemMemoryUsage,
+                stats);
     }
 
     interface FSDataInputStreamProvider

@@ -53,6 +53,7 @@ public class HiveTableHandle
     private final Optional<List<TupleDomain<HiveColumnHandle>>> disjunctCompactEffectivePredicate;
     private final boolean suitableToPush;
 //    private final RowExpression remainingPredicate; //For Complex Expression.
+    private final HiveOffloadExpression offloadExpression;
 
     @JsonCreator
     public HiveTableHandle(
@@ -66,7 +67,8 @@ public class HiveTableHandle
             @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues,
             @JsonProperty("predicateColumns") Map<String, HiveColumnHandle> predicateColumns,
             @JsonProperty("additionaPredicates") Optional<List<TupleDomain<HiveColumnHandle>>> disjunctCompactEffectivePredicate,
-            @JsonProperty("suitableToPush") boolean suitableToPush)
+            @JsonProperty("suitableToPush") boolean suitableToPush,
+            @JsonProperty("offloadExpression") HiveOffloadExpression offloadExpression)
     {
         this(
                 schemaName,
@@ -81,7 +83,8 @@ public class HiveTableHandle
                 analyzePartitionValues,
                 predicateColumns,
                 disjunctCompactEffectivePredicate,
-                suitableToPush);
+                suitableToPush,
+                offloadExpression);
     }
 
     public HiveTableHandle(
@@ -104,7 +107,8 @@ public class HiveTableHandle
                 Optional.empty(),
                 null,
                 Optional.empty(),
-                false);
+                false,
+                new HiveOffloadExpression());
     }
 
     public HiveTableHandle(
@@ -120,7 +124,8 @@ public class HiveTableHandle
             Optional<List<List<String>>> analyzePartitionValues,
             Map<String, HiveColumnHandle> predicateColumns,
             Optional<List<TupleDomain<HiveColumnHandle>>> disjunctCompactEffectivePredicate,
-            boolean suitableToPush)
+            boolean suitableToPush,
+            HiveOffloadExpression offloadExpression)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -135,6 +140,7 @@ public class HiveTableHandle
         this.predicateColumns = predicateColumns;
         this.disjunctCompactEffectivePredicate = requireNonNull(disjunctCompactEffectivePredicate, "disjunctCompactEffectivePredicate is null");
         this.suitableToPush = suitableToPush;
+        this.offloadExpression = offloadExpression;
     }
 
     public HiveTableHandle withAnalyzePartitionValues(Optional<List<List<String>>> analyzePartitionValues)
@@ -152,7 +158,27 @@ public class HiveTableHandle
                 analyzePartitionValues,
                 predicateColumns,
                 Optional.empty(),
-                suitableToPush);
+                suitableToPush,
+                offloadExpression);
+    }
+
+    public HiveTableHandle withOffloadExpression(HiveOffloadExpression offloadExpression)
+    {
+        return new HiveTableHandle(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues,
+                predicateColumns,
+                disjunctCompactEffectivePredicate,
+                suitableToPush,
+                offloadExpression);
     }
 
     @JsonProperty
@@ -254,6 +280,12 @@ public class HiveTableHandle
         return suitableToPush;
     }
 
+    @JsonProperty
+    public HiveOffloadExpression getOffloadExpression()
+    {
+        return offloadExpression;
+    }
+
     /**
      * Hetu execution plan caching functionality requires a method to update
      * {@link ConnectorTableHandle} from a previous execution plan with new info from
@@ -283,7 +315,8 @@ public class HiveTableHandle
                 oldHiveConnectorTableHandle.getAnalyzePartitionValues(),
                 oldHiveConnectorTableHandle.getPredicateColumns(),
                 oldHiveConnectorTableHandle.getDisjunctCompactEffectivePredicate(),
-                oldHiveConnectorTableHandle.isSuitableToPush());
+                oldHiveConnectorTableHandle.isSuitableToPush(),
+                oldHiveConnectorTableHandle.getOffloadExpression());
     }
 
     @Override
@@ -350,6 +383,7 @@ public class HiveTableHandle
         builder.append(schemaName).append(":").append(tableName);
         bucketHandle.ifPresent(bucket ->
                 builder.append(" bucket=").append(bucket.getReadBucketCount()));
+        builder.append(offloadExpression.toString());
         return builder.toString();
     }
 

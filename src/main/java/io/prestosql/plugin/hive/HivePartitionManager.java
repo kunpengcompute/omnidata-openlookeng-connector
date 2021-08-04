@@ -223,7 +223,8 @@ public class HivePartitionManager
                 handle.getAnalyzePartitionValues(),
                 handle.getPredicateColumns(),
                 handle.getDisjunctCompactEffectivePredicate(),
-                handle.isSuitableToPush());
+                handle.isSuitableToPush(),
+                handle.getOffloadExpression());
     }
 
     public List<HivePartition> getOrLoadPartitions(ConnectorSession session, SemiTransactionalHiveMetastore metastore, HiveIdentity identity, HiveTableHandle tableHandle)

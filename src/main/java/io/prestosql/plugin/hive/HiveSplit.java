@@ -53,6 +53,8 @@ public class HiveSplit
     private final Optional<Long> startRowOffsetOfFile;
     private final boolean cacheable;
     private final Map<String, String> customSplitInfo;
+    private final boolean offload;
+    private final String ipuAddress;
 
     @JsonCreator
     public HiveSplit(
@@ -75,7 +77,9 @@ public class HiveSplit
             @JsonProperty("deleteDeltaLocations") Optional<DeleteDeltaLocations> deleteDeltaLocations,
             @JsonProperty("validWriteIdList") Optional<Long> startRowOffsetOfFile,
             @JsonProperty("cacheable") boolean cacheable,
-            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo)
+            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo,
+            @JsonProperty("offload") boolean offload,
+            @JsonProperty("ipuAddress") String ipuAddress)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -113,6 +117,130 @@ public class HiveSplit
         this.startRowOffsetOfFile = startRowOffsetOfFile;
         this.cacheable = cacheable;
         this.customSplitInfo = ImmutableMap.copyOf(requireNonNull(customSplitInfo, "customSplitInfo is null"));
+        this.offload = offload;
+        this.ipuAddress = ipuAddress;
+    }
+
+    public HiveSplit newHiveSplit(HiveSplit split, boolean offload, String ipuAddress)
+    {
+        return new HiveSplit(
+                split.getDatabase(),
+                split.getTable(),
+                split.getPartitionName(),
+                split.getPath(),
+                split.getStart(),
+                split.getLength(),
+                split.getFileSize(),
+                split.getLastModifiedTime(),
+                split.getSchema(),
+                split.getPartitionKeys(),
+                split.getAddresses(),
+                split.getBucketNumber(),
+                split.isForceLocalScheduling(),
+                split.getColumnCoercions(),
+                split.getBucketConversion(),
+                split.isS3SelectPushdownEnabled(),
+                split.getDeleteDeltaLocations(),
+                split.getStartRowOffsetOfFile(),
+                split.isCacheable(),
+                split.getCustomSplitInfo(),
+                offload,
+                ipuAddress);
+    }
+
+    public HiveSplit(
+            String database,
+            String table,
+            String partitionName,
+            String path,
+            long start,
+            long length,
+            long fileSize,
+            long lastModifiedTime,
+            Properties schema,
+            List<HivePartitionKey> partitionKeys,
+            List<HostAddress> addresses,
+            OptionalInt bucketNumber,
+            boolean forceLocalScheduling,
+            Map<Integer, HiveType> columnCoercions,
+            Optional<BucketConversion> bucketConversion,
+            boolean s3SelectPushdownEnabled,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations,
+            Optional<Long> startRowOffsetOfFile,
+            boolean cacheable,
+            Map<String, String> customSplitInfo,
+            boolean offload)
+    {
+        this(
+                database,
+                table,
+                partitionName,
+                path,
+                start,
+                length,
+                fileSize,
+                lastModifiedTime,
+                schema,
+                partitionKeys,
+                addresses,
+                bucketNumber,
+                forceLocalScheduling,
+                columnCoercions,
+                bucketConversion,
+                s3SelectPushdownEnabled,
+                deleteDeltaLocations,
+                startRowOffsetOfFile,
+                cacheable,
+                customSplitInfo,
+                offload,
+                "");
+    }
+
+    public HiveSplit(
+            String database,
+            String table,
+            String partitionName,
+            String path,
+            long start,
+            long length,
+            long fileSize,
+            long lastModifiedTime,
+            Properties schema,
+            List<HivePartitionKey> partitionKeys,
+            List<HostAddress> addresses,
+            OptionalInt bucketNumber,
+            boolean forceLocalScheduling,
+            Map<Integer, HiveType> columnCoercions,
+            Optional<BucketConversion> bucketConversion,
+            boolean s3SelectPushdownEnabled,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations,
+            Optional<Long> startRowOffsetOfFile,
+            boolean cacheable,
+            Map<String, String> customSplitInfo)
+    {
+        this(
+                database,
+                table,
+                partitionName,
+                path,
+                start,
+                length,
+                fileSize,
+                lastModifiedTime,
+                schema,
+                partitionKeys,
+                addresses,
+                bucketNumber,
+                forceLocalScheduling,
+                columnCoercions,
+                bucketConversion,
+                s3SelectPushdownEnabled,
+                deleteDeltaLocations,
+                startRowOffsetOfFile,
+                cacheable,
+                customSplitInfo,
+                false,
+                "");
     }
 
     @JsonProperty
@@ -245,6 +373,18 @@ public class HiveSplit
     }
 
     @JsonProperty
+    public boolean isOffload()
+    {
+        return offload;
+    }
+
+    @JsonProperty
+    public String getIpuAddress()
+    {
+        return ipuAddress;
+    }
+
+    @JsonProperty
     public Map<String, String> getCustomSplitInfo()
     {
         return customSplitInfo;
@@ -265,6 +405,7 @@ public class HiveSplit
                 .put("partitionName", partitionName)
                 .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .put("cacheable", cacheable)
+                .put("offload", offload)
                 .build();
     }
 

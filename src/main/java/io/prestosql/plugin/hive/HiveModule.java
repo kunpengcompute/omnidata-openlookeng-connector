@@ -28,17 +28,20 @@ import io.prestosql.orc.OrcCacheStore;
 import io.prestosql.orc.RowDataCacheStatsLister;
 import io.prestosql.orc.RowIndexCacheStatsLister;
 import io.prestosql.orc.StripeFooterCacheStatsLister;
+import io.prestosql.plugin.hive.ipu.IpuNodeManager;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.orc.OrcSelectivePageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.prestosql.plugin.hive.rule.HivePlanOptimizerProvider;
 import io.prestosql.plugin.hive.s3.PrestoS3ClientFactory;
 import io.prestosql.plugin.hive.util.IndexCache;
 import io.prestosql.plugin.hive.util.IndexCacheLoader;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorPlanOptimizerProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 
 import javax.inject.Singleton;
@@ -93,6 +96,8 @@ public class HiveModule
         binder.bind(HiveWriterStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveWriterStats.class).withGeneratedName();
 
+        binder.bind(IpuNodeManager.class).in(Scopes.SINGLETON);
+
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
@@ -104,6 +109,7 @@ public class HiveModule
         binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPlanOptimizerProvider.class).to(HivePlanOptimizerProvider.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
 

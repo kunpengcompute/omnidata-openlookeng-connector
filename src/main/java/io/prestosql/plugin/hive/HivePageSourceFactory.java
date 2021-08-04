@@ -45,4 +45,43 @@ public interface HivePageSourceFactory
             SplitMetadata splitMetadata,
             boolean splitCacheable,
             long dataSourceLastModifiedTime);
+
+    default Optional<? extends ConnectorPageSource> createPageSource(
+            Configuration configuration,
+            ConnectorSession session,
+            Path path,
+            long start,
+            long length,
+            long fileSize,
+            Properties schema,
+            List<HiveColumnHandle> columns,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Optional<DynamicFilterSupplier> dynamicFilterSupplier,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations,
+            Optional<Long> startRowOffsetOfFile,
+            Optional<List<IndexMetadata>> indexes,
+            SplitMetadata splitMetadata,
+            boolean splitCacheable,
+            long dataSourceLastModifiedTime,
+            Optional<String> ipuAddress,
+            HiveOffloadExpression offloadExpression)
+    {
+        return createPageSource(
+                configuration,
+                session,
+                path,
+                start,
+                length,
+                fileSize,
+                schema,
+                columns,
+                effectivePredicate,
+                dynamicFilterSupplier,
+                deleteDeltaLocations,
+                startRowOffsetOfFile,
+                indexes,
+                splitMetadata,
+                splitCacheable,
+                dataSourceLastModifiedTime);
+    }
 }

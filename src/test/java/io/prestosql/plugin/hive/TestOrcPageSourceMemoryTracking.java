@@ -517,7 +517,9 @@ public class TestOrcPageSourceMemoryTracking
                     null,
                     false,
                     -1L,
-                    ImmutableMap.of())
+                    ImmutableMap.of(),
+                    Optional.empty(),
+                    new HiveOffloadExpression())
                     .get();
         }
 

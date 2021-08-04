@@ -16,12 +16,24 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.huawei.boostkit.omnidata.block.BlockDeserializer;
+import com.huawei.boostkit.omnidata.model.Predicate;
+import com.huawei.boostkit.omnidata.model.TaskSource;
+import com.huawei.boostkit.omnidata.model.datasource.DataSource;
+import com.huawei.boostkit.omnidata.model.datasource.hdfs.HdfsRecordDataSource;
+import com.huawei.boostkit.omnidata.reader.DataReader;
+import com.huawei.boostkit.omnidata.reader.DataReaderFactory;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.plugin.hive.HiveBucketing.BucketingVersion;
 import io.prestosql.plugin.hive.coercions.HiveCoercer;
+import io.prestosql.plugin.hive.ipu.IpuNodeManager;
 import io.prestosql.plugin.hive.orc.OrcConcatPageSource;
+import io.prestosql.plugin.hive.rule.HiveFilterPushdown;
 import io.prestosql.plugin.hive.util.IndexCache;
+import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
@@ -54,7 +66,9 @@ import org.eclipse.jetty.util.URIUtil;
 
 import javax.inject.Inject;
 
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -63,6 +77,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,17 +85,20 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOADED;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static io.prestosql.plugin.hive.HiveUtil.isPartitionFiltered;
 import static io.prestosql.plugin.hive.coercions.HiveCoercer.createCoercer;
+import static io.prestosql.plugin.hive.util.PageSourceUtil.buildPushdownContext;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private static final Logger log = Logger.get(HiveFilterPushdown.class);
     private final HdfsEnvironment hdfsEnvironment;
     private final Set<HiveRecordCursorProvider> cursorProviders;
     private final TypeManager typeManager;
@@ -90,8 +108,30 @@ public class HivePageSourceProvider
     private static final String HIVE_DEFAULT_PARTITION_VALUE = "\\N";
     private final IndexCache indexCache;
     private final Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories;
+    private final IpuNodeManager ipuNodeManager;
 
     @Inject
+    public HivePageSourceProvider(
+            IpuNodeManager ipuNodeManager,
+            HiveConfig hiveConfig,
+            HdfsEnvironment hdfsEnvironment,
+            Set<HiveRecordCursorProvider> cursorProviders,
+            Set<HivePageSourceFactory> pageSourceFactories,
+            TypeManager typeManager,
+            IndexCache indexCache,
+            Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories)
+    {
+        requireNonNull(hiveConfig, "hiveConfig is null");
+        this.ipuNodeManager = ipuNodeManager;
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.cursorProviders = ImmutableSet.copyOf(requireNonNull(cursorProviders, "cursorProviders is null"));
+        this.pageSourceFactories = ImmutableSet.copyOf(
+                requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.indexCache = indexCache;
+        this.selectivePageSourceFactories = selectivePageSourceFactories;
+    }
+
     public HivePageSourceProvider(
             HiveConfig hiveConfig,
             HdfsEnvironment hdfsEnvironment,
@@ -109,6 +149,7 @@ public class HivePageSourceProvider
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.indexCache = indexCache;
         this.selectivePageSourceFactories = selectivePageSourceFactories;
+        this.ipuNodeManager = null;
     }
 
     @Override
@@ -144,6 +185,44 @@ public class HivePageSourceProvider
                 .map(hiveSplit -> createPageSourceInternal(session, dynamicFilterSupplier, finalDynamicFilters, hiveTable, hiveColumns, hiveSplit))
                 .collect(toList());
         return new OrcConcatPageSource(pageSources);
+    }
+
+    private Optional<String> getSplitIpuAddr(HiveOffloadExpression expression, HiveSplit hiveSplit)
+    {
+        if (!expression.isPresent()) {
+            return Optional.empty();
+        }
+
+        // empty split
+        if (hiveSplit.getAddresses().size() == 0) {
+            return ipuNodeManager.getAllNodes().isEmpty() ? Optional.empty() :
+                    Optional.of(ipuNodeManager.getAllNodes().values().stream().findAny().get().getHostAddress().toString());
+        }
+
+        int copyNumber = hiveSplit.getAddresses().size();
+        int seed = (int) (hiveSplit.getStart() % copyNumber);
+        Optional<String> ipuAddress = Optional.empty();
+        for (int i = 0; i < hiveSplit.getAddresses().size(); i++) {
+            int copyIndex = (i + seed) % copyNumber;
+            try {
+                ///TODO: move to ipuNodeManager ?
+                String host = InetAddress.getByName(hiveSplit.getAddresses().get(copyIndex).getHostText()).getHostAddress();
+                HostAddress hostAddress = new HostAddress(host, -1);
+                ipuAddress = ipuNodeManager.getAllNodes().containsKey(hostAddress)
+                    ? Optional.of(ipuNodeManager.getAllNodes().get(hostAddress).getHostAddress().toString()) : Optional.empty();
+            }
+            catch (UnknownHostException e) {
+                ///TODO: Can print host name?
+                log.warn("Get host ip by host name %s fail, table.", hiveSplit.getAddresses().get(copyIndex).getHostText());
+            }
+            if (ipuAddress.isPresent()) {
+                return ipuAddress;
+            }
+        }
+        StringJoiner joiner = new StringJoiner(", ");
+        hiveSplit.getAddresses().stream().map(entry -> entry.toString()).forEach(joiner::add);
+        log.warn("Get fpu ip for split[%s] fail, ipuNodeManager size %d.", joiner.toString(), ipuNodeManager.getAllNodes().size());
+        return Optional.empty();
     }
 
     private ConnectorPageSource createPageSourceInternal(ConnectorSession session,
@@ -224,6 +303,7 @@ public class HivePageSourceProvider
                     hiveSplit.getLastModifiedTime());
         }
 
+        Optional<String> ipuAddress = getSplitIpuAddr(hiveTable.getOffloadExpression(), hiveSplit);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
                 pageSourceFactories,
@@ -249,7 +329,9 @@ public class HivePageSourceProvider
                 splitMetadata,
                 hiveSplit.isCacheable(),
                 hiveSplit.getLastModifiedTime(),
-                hiveSplit.getCustomSplitInfo());
+                hiveSplit.getCustomSplitInfo(),
+                ipuAddress,
+                hiveTable.getOffloadExpression());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -411,7 +493,9 @@ public class HivePageSourceProvider
             SplitMetadata splitMetadata,
             boolean splitCacheable,
             long dataSourceLastModifiedTime,
-            Map<String, String> customSplitInfo)
+            Map<String, String> customSplitInfo,
+            Optional<String> ipuAddress,
+            HiveOffloadExpression expression)
     {
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 partitionKeys,
@@ -443,7 +527,9 @@ public class HivePageSourceProvider
                     indexes,
                     splitMetadata,
                     splitCacheable,
-                    dataSourceLastModifiedTime);
+                    dataSourceLastModifiedTime,
+                    ipuAddress,
+                    expression);
             if (pageSource.isPresent()) {
                 return Optional.of(
                         new HivePageSource(
@@ -455,6 +541,23 @@ public class HivePageSourceProvider
                                 session,
                                 partitionKeys));
             }
+        }
+
+        // PushDown txt/orc file to omni-data
+        if (HiveSessionProperties.isOmniDataEnabled(session) && expression.isPresent()) {
+            checkArgument(ipuAddress.isPresent(), "ipuAddress is empty");
+
+            Predicate predicate = buildPushdownContext(hiveColumns, expression, typeManager);
+            ConnectorPageSource pageSource = createPushDownPageSource(path, start, length, fileSize, predicate, ipuAddress.get(), schema);
+            return Optional.of(
+                    new HivePageSource(
+                            columnMappings,
+                            bucketAdaptation,
+                            typeManager,
+                            pageSource,
+                            dynamicFilterSupplier,
+                            session,
+                            partitionKeys));
         }
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
@@ -510,6 +613,30 @@ public class HivePageSourceProvider
         }
 
         return Optional.empty();
+    }
+
+    private static ConnectorPageSource createPushDownPageSource(
+            Path path,
+            long start,
+            long length,
+            long fileSize,
+            Predicate predicate,
+            String omniDataServerTarget,
+            Properties schema)
+    {
+        AggregatedMemoryContext systemMemoryUsage = AggregatedMemoryContext.newSimpleAggregatedMemoryContext();
+        Properties transProperties = new Properties();
+        transProperties.put("grpc.client.target", omniDataServerTarget);
+
+        DataSource pushDownDataSource = new HdfsRecordDataSource(path.toString(), start, length, fileSize, schema);
+
+        TaskSource readTaskInfo = new TaskSource(
+                pushDownDataSource,
+                predicate,
+                TaskSource.ONE_MEGABYTES);
+        DataReader dataReader = DataReaderFactory.create(transProperties, readTaskInfo, new BlockDeserializer());
+
+        return new HivePushDownRecordPageSource(dataReader, systemMemoryUsage);
     }
 
     public static Optional<BucketAdaptation> toBucketAdaptation(Optional<HiveSplit.BucketConversion> bucketConversion,
@@ -623,6 +750,13 @@ public class HivePageSourceProvider
             return coercionFrom;
         }
 
+        public static ColumnMapping aggregated(HiveColumnHandle hiveColumnHandle, int index)
+        {
+            checkArgument(hiveColumnHandle.getColumnType() == DUMMY_OFFLOADED);
+            // Pretend that it is a regular column so that the split manager can process it as normal
+            return new ColumnMapping(ColumnMappingKind.REGULAR, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), Optional.empty());
+        }
+
         /**
          * @param columns columns that need to be returned to engine
          * @param requiredInterimColumns columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
@@ -648,6 +782,10 @@ public class HivePageSourceProvider
                     checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
 
                     columnMappings.add(regular(column, regularIndex, coercionFrom));
+                    regularIndex++;
+                }
+                else if (column.getColumnType() == DUMMY_OFFLOADED) {
+                    columnMappings.add(aggregated(column, regularIndex));
                     regularIndex++;
                 }
                 else if (HiveColumnHandle.isUpdateColumnHandle(column)) {

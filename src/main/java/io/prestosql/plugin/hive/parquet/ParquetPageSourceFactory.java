@@ -16,6 +16,11 @@ package io.prestosql.plugin.hive.parquet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.huawei.boostkit.omnidata.block.BlockDeserializer;
+import com.huawei.boostkit.omnidata.model.TaskSource;
+import com.huawei.boostkit.omnidata.model.datasource.DataSource;
+import com.huawei.boostkit.omnidata.reader.DataReader;
+import com.huawei.boostkit.omnidata.reader.DataReaderFactory;
 import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.parquet.ParquetCorruptionException;
@@ -29,7 +34,9 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.HiveOffloadExpression;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -82,6 +89,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isUseParquetColumnN
 import static io.prestosql.plugin.hive.HiveUtil.getDeserializerClassName;
 import static io.prestosql.plugin.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
 import static io.prestosql.plugin.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
+import static io.prestosql.plugin.hive.util.PageSourceUtil.buildPushdownContext;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -100,6 +108,7 @@ public class ParquetPageSourceFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final DateTimeZone timeZone;
+    private String omniDataServerTarget;
 
     @Inject
     public ParquetPageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
@@ -108,6 +117,70 @@ public class ParquetPageSourceFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getParquetDateTimeZone();
+    }
+
+    @Override
+    public Optional<? extends ConnectorPageSource> createPageSource(
+            Configuration configuration,
+            ConnectorSession session,
+            Path path,
+            long start,
+            long length,
+            long fileSize,
+            Properties schema,
+            List<HiveColumnHandle> columns,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Optional<DynamicFilterSupplier> dynamicFilter,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations,
+            Optional<Long> startRowOffsetOfFile,
+            Optional<List<IndexMetadata>> indexes,
+            SplitMetadata splitMetadata,
+            boolean splitCacheable,
+            long dataSourceLastModifiedTime,
+            Optional<String> ipuAddress,
+            HiveOffloadExpression offloadExpression)
+    {
+        if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(
+                schema))) {
+            return Optional.empty();
+        }
+
+        ipuAddress.ifPresent(s -> omniDataServerTarget = s);
+
+        if (offloadExpression.isPresent()) {
+            checkArgument(ipuAddress.isPresent(), "ipuAddress is empty");
+        }
+
+        if (HiveSessionProperties.isOmniDataEnabled(session)
+                && ipuAddress.isPresent()
+                && offloadExpression.isPresent()) {
+            com.huawei.boostkit.omnidata.model.Predicate predicate = buildPushdownContext(columns, offloadExpression, typeManager);
+            return Optional.of(createParquetPushDownPageSource(
+                    path,
+                    start,
+                    length,
+                    fileSize,
+                    predicate,
+                    stats));
+        }
+
+        return createPageSource(
+                configuration,
+                session,
+                path,
+                start,
+                length,
+                fileSize,
+                schema,
+                columns,
+                effectivePredicate,
+                dynamicFilter,
+                deleteDeltaLocations,
+                startRowOffsetOfFile,
+                indexes,
+                splitMetadata,
+                splitCacheable,
+                dataSourceLastModifiedTime);
     }
 
     @Override
@@ -257,6 +330,33 @@ public class ParquetPageSourceFactory
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    public ParquetPushDownPageSource createParquetPushDownPageSource(
+            Path path,
+            long start,
+            long length,
+            long fileSize,
+            com.huawei.boostkit.omnidata.model.Predicate predicate,
+            FileFormatDataSourceStats stats)
+    {
+        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+        Properties transProperties = new Properties();
+        transProperties.put("grpc.client.target", omniDataServerTarget);
+
+        DataSource parquetPushDownDataSource = new com.huawei.boostkit.omnidata.model.datasource.hdfs.HdfsParquetDataSource(path.toString(), start, length, fileSize, false);
+
+        TaskSource readTaskInfo = new TaskSource(
+                parquetPushDownDataSource,
+                predicate,
+                TaskSource.ONE_MEGABYTES);
+        DataReader dataReader = DataReaderFactory.create(transProperties, readTaskInfo, new BlockDeserializer());
+
+        return new ParquetPushDownPageSource(
+                dataReader,
+                parquetPushDownDataSource,
+                systemMemoryUsage,
+                stats);
     }
 
     public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<HiveColumnHandle> effectivePredicate)

@@ -208,6 +208,15 @@ public class HiveConfig
     private double vacuumDeltaPercentThreshold = 0.1;
     private boolean autoVacuumEnabled;
     private boolean orcPredicatePushdownEnabled;
+    private String omniDataServerTarget = "127.0.0.1:9100";
+
+    private boolean omniDataEnabled;
+    private boolean filterOffloadEnabled = true;
+    private double minFilterOffloadFactor = 0.5;
+    private boolean aggregatorOffloadEnabled = true;
+    private double minAggregatorOffloadFactor = 0.5;
+    private long minOffloadRowNumber = 500;
+    private boolean httpsRequired;
     private int hmsWriteBatchSize = 8;
 
     public int getMaxInitialSplits()
@@ -1891,5 +1900,114 @@ public class HiveConfig
     public boolean getWorkerMetaStoreCacheEnabled()
     {
         return this.workerMetaStoreCacheEnabled;
+    }
+
+    public String getOmniDataServerTarget()
+    {
+        return this.omniDataServerTarget;
+    }
+
+    @Config("omni-data.server.target")
+    @ConfigDescription("the ip and port of server target")
+    public HiveConfig setOmniDataServerTarget(String omniDataServerTarget)
+    {
+        this.omniDataServerTarget = omniDataServerTarget;
+        return this;
+    }
+
+    @Config("hive.filter-offload-enabled")
+    @ConfigDescription("Enables offload filter operators to storage device.")
+    public HiveConfig setFilterOffloadEnabled(boolean filterOffloadEnabled)
+    {
+        this.filterOffloadEnabled = filterOffloadEnabled;
+        return this;
+    }
+
+    public boolean isFilterOffloadEnabled()
+    {
+        return filterOffloadEnabled;
+    }
+
+    @Config("hive.aggregator-offload-enabled")
+    @ConfigDescription("Enables offload aggregator operators to storage device.")
+    public HiveConfig setAggregatorOffloadEnabled(boolean aggregatorOffloadEnabled)
+    {
+        this.aggregatorOffloadEnabled = aggregatorOffloadEnabled;
+        return this;
+    }
+
+    @Config("hive.omnidata-enabled")
+    @ConfigDescription("Enables omnidata feature.")
+    public HiveConfig setOmniDataEnabled(boolean omniDataEnabled)
+    {
+        this.omniDataEnabled = omniDataEnabled;
+        return this;
+    }
+
+    public boolean isOmniDataEnabled()
+    {
+        return omniDataEnabled;
+    }
+
+    public boolean isAggregatorOffloadEnabled()
+    {
+        return aggregatorOffloadEnabled;
+    }
+
+    @Config("hive.min-filter-offload-factor")
+    @ConfigDescription("The minimum data filtering threshold for predicate expression offload.")
+    public HiveConfig setMinFilterOffloadFactor(double minFilterOffloadFactor)
+    {
+        this.minFilterOffloadFactor = minFilterOffloadFactor;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMinFilterOffloadFactor()
+    {
+        return minFilterOffloadFactor;
+    }
+
+    @Config("hive.min-aggregator-offload-factor")
+    @ConfigDescription("The minimum data aggregation threshold for aggregation expression offload.")
+    public HiveConfig setMinAggregatorOffloadFactor(double minAggregatorOffloadFactor)
+    {
+        this.minAggregatorOffloadFactor = minAggregatorOffloadFactor;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMinAggregatorOffloadFactor()
+    {
+        return minAggregatorOffloadFactor;
+    }
+
+    @Config("hive.min-offload-row-number")
+    @ConfigDescription("The minimum table size for operator offload.")
+    public HiveConfig setMinOffloadRowNumber(long filterFactor)
+    {
+        this.minOffloadRowNumber = filterFactor;
+        return this;
+    }
+
+    @Min(1)
+    public long getMinOffloadRowNumber()
+    {
+        return minOffloadRowNumber;
+    }
+
+    @Config("hive.ipu-https-required")
+    @ConfigDescription("Enables https communication.")
+    public HiveConfig setHttpsRequired(boolean httpsRequired)
+    {
+        this.httpsRequired = httpsRequired;
+        return this;
+    }
+
+    public boolean isHttpsRequired()
+    {
+        return httpsRequired;
     }
 }

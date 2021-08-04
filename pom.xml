@@ -49,6 +49,11 @@
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-hadoop-mr</artifactId>
         </dependency>
+	
+        <dependency>
+            <groupId>io.hetu.core</groupId>
+            <artifactId>presto-expressions</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>io.hetu.core</groupId>
@@ -63,7 +68,6 @@
         <dependency>
             <groupId>io.prestosql.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -259,6 +263,171 @@
             <scope>provided</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.huawei.boostkit</groupId>
+            <artifactId>boostkit-omnidata-client</artifactId>
+            <version>1.0.0-aarch64</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>log4j</artifactId>
+                    <groupId>log4j</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>guava</artifactId>
+                    <groupId>com.google.guava</groupId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-databind</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>snappy-java</artifactId>
+                    <groupId>org.xerial.snappy</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>slf4j-api</artifactId>
+                    <groupId>org.slf4j</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>zookeeper</artifactId>
+                    <groupId>org.apache.zookeeper</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                    <groupId>org.slf4j</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>hive-storage-api</artifactId>
+                    <groupId>org.apache.hive</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>jersey-common</artifactId>
+                    <groupId>org.glassfish.jersey.core</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>jersey-server</artifactId>
+                    <groupId>org.glassfish.jersey.core</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>jersey-container-servlet-core</artifactId>
+                    <groupId>org.glassfish.jersey.containers</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>jul-to-slf4j</artifactId>
+                    <groupId>org.slf4j</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>javassist</artifactId>
+                    <groupId>org.javassist</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>arrow-vector</artifactId>
+                    <groupId>org.apache.arrow</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>arrow-memory</artifactId>
+                    <groupId>org.apache.arrow</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>hadoop-hdfs</artifactId>
+                    <groupId>org.apache.hadoop</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>hadoop-mapreduce-client-core</artifactId>
+                    <groupId>org.apache.hadoop</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>hadoop-common</artifactId>
+                    <groupId>org.apache.hadoop</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>slf4j-log4j12</artifactId>
+                    <groupId>org.slf4j</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>leveldbjni-all</artifactId>
+                    <groupId>org.fusesource.leveldbjni</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>spark-catalyst_2.12</artifactId>
+                    <groupId>org.apache.spark</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>spark-core_2.12</artifactId>
+                    <groupId>org.apache.spark</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>spark-kvstore_2.12</artifactId>
+                    <groupId>org.apache.spark</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>spark-launcher_2.12</artifactId>
+                    <groupId>org.apache.spark</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>spark-sketch_2.12</artifactId>
+                    <groupId>org.apache.spark</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>spark-sql_2.12</artifactId>
+                    <groupId>org.apache.spark</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>spark-tags_2.12</artifactId>
+                    <groupId>org.apache.spark</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>unused</artifactId>
+                    <groupId>org.spark-project.spark</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.huawei.boostkit</groupId>
+            <artifactId>boostkit-omnidata-core</artifactId>
+            <version>1.0.0-aarch64</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>guava</artifactId>
+                    <groupId>com.google.guava</groupId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-annotations</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>error_prone_annotations</artifactId>
+                    <groupId>com.google.errorprone</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>gson</artifactId>
+                    <groupId>com.google.code.gson</groupId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-api</artifactId>
+                </exclusion>
+            </exclusions>
+            <version>1.28.1</version>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>io.hetu.core</groupId>
@@ -379,7 +548,6 @@
         <dependency>
             <groupId>io.hetu.core</groupId>
             <artifactId>hetu-transport</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -404,6 +572,18 @@
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-util</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>discovery</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>http-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
         </dependency>
     </dependencies>
 

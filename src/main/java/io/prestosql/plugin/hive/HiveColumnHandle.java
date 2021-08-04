@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOADED;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
@@ -54,6 +55,9 @@ public class HiveColumnHandle
     public static final int ROW_ID__COLUMN_INDEX = -13;
     public static final String UPDATE_ROW_ID_COLUMN_NAME = "$rowId";
 
+    public static final int DUMMY_OFFLOADED_COLUMN_INDEX = -20;
+    public static final String DUMMY_OFFLOADED_COLUMN_NAME = "count_star";
+
     // Ids <= MAX_PARTITION_KEY_COLUMN_INDEX, can be used for distinguishing between different partition prefilled columns.
     // NOTE: Incase any new hidden columns added, their index should be more than below value or below value should be adjusted.
     public static final int MAX_PARTITION_KEY_COLUMN_INDEX = -14;
@@ -63,6 +67,7 @@ public class HiveColumnHandle
         PARTITION_KEY,
         REGULAR,
         SYNTHESIZED,
+        DUMMY_OFFLOADED,
     }
 
     private final String name;
@@ -96,7 +101,7 @@ public class HiveColumnHandle
             @JsonProperty("required") boolean required)
     {
         this.name = requireNonNull(name, "name is null");
-        checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "hiveColumnIndex is negative");
+        checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED || columnType == DUMMY_OFFLOADED, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
         this.hiveType = requireNonNull(hiveType, "hiveType is null");
         this.typeName = requireNonNull(typeSignature, "type is null");

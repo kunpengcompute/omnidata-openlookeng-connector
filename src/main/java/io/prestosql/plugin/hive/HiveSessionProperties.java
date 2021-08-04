@@ -31,7 +31,9 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingParti
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.dataSizeProperty;
+import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
+import static io.prestosql.spi.session.PropertyMetadata.longProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -90,6 +92,12 @@ public final class HiveSessionProperties
     private static final String ORC_DISJUCT_PREDICATE_PUSHDOWN = "orc_disjunct_predicate_pushdown_enabled";
     private static final String ORC_PUSHDOWN_DATACACHE = "orc_pushdown_data_cache_enabled";
     private static final String WRITE_PARTITION_DISTRIBUTION = "write_partition_distribution";
+    private static final String FILTER_OFFLOAD = "filter_offload_enabled";
+    private static final String AGGREGATOR_OFFLOAD = "aggregator_offload_enabled";
+    private static final String MIN_FILTER_OFFLOAD_FACTOR = "min_filter_offload_factor";
+    private static final String MIN_AGGREGATOR_OFFLOAD_FACTOR = "min_aggregator_offload_factor";
+    private static final String MIN_OFFLOAD_ROW_NUMBER = "min_offload_row_number";
+    private static final String OMNIDATA_ENABLE = "omnidata_enabled";
     private static final String METASTORE_WRITE_BATCH_SIZE = "metastore_write_batch_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -391,6 +399,36 @@ public final class HiveSessionProperties
                         ORC_PUSHDOWN_DATACACHE,
                         "Experimental: Enable data cache or result cache with predicate pushdown.",
                         true,
+                        false),
+                booleanProperty(
+                        FILTER_OFFLOAD,
+                        "Enables offload filter operators to storage device.",
+                        hiveConfig.isFilterOffloadEnabled(),
+                        false),
+                booleanProperty(
+                        AGGREGATOR_OFFLOAD,
+                        "Enables offload aggregator operators to storage device.",
+                        hiveConfig.isAggregatorOffloadEnabled(),
+                        false),
+                booleanProperty(
+                        OMNIDATA_ENABLE,
+                        "Enables OmniData feature.",
+                        hiveConfig.isOmniDataEnabled(),
+                        false),
+                doubleProperty(
+                        MIN_FILTER_OFFLOAD_FACTOR,
+                        "The minimum data filtering threshold for predicate expression offload.",
+                        hiveConfig.getMinFilterOffloadFactor(),
+                        false),
+                doubleProperty(
+                        MIN_AGGREGATOR_OFFLOAD_FACTOR,
+                        "The minimum data aggregation threshold for aggregation expression offload.",
+                        hiveConfig.getMinAggregatorOffloadFactor(),
+                        false),
+                longProperty(
+                        MIN_OFFLOAD_ROW_NUMBER,
+                        "The minimum table size for operator offload.",
+                        hiveConfig.getMinOffloadRowNumber(),
                         false));
     }
 
@@ -659,5 +697,35 @@ public final class HiveSessionProperties
     public static boolean isOrcPushdownDataCacheEnabled(ConnectorSession session)
     {
         return session.getProperty(ORC_PUSHDOWN_DATACACHE, Boolean.class);
+    }
+
+    public static boolean isFilterOffloadEnabled(ConnectorSession session)
+    {
+        return session.getProperty(FILTER_OFFLOAD, Boolean.class);
+    }
+
+    public static boolean isAggregatorOffloadEnabled(ConnectorSession session)
+    {
+        return session.getProperty(AGGREGATOR_OFFLOAD, Boolean.class);
+    }
+
+    public static boolean isOmniDataEnabled(ConnectorSession session)
+    {
+        return session.getProperty(OMNIDATA_ENABLE, Boolean.class);
+    }
+
+    public static double getMinFilterOffloadFactor(ConnectorSession session)
+    {
+        return session.getProperty(MIN_FILTER_OFFLOAD_FACTOR, Double.class);
+    }
+
+    public static double getMinAggregatorOffloadFactor(ConnectorSession session)
+    {
+        return session.getProperty(MIN_AGGREGATOR_OFFLOAD_FACTOR, Double.class);
+    }
+
+    public static long getMinOffloadRowNumber(ConnectorSession session)
+    {
+        return session.getProperty(MIN_OFFLOAD_ROW_NUMBER, Long.class);
     }
 }

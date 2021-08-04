@@ -42,13 +42,18 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorPlanOptimizerProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
+import io.prestosql.spi.function.FunctionMetadataManager;
+import io.prestosql.spi.function.StandardFunctionResolution;
 import io.prestosql.spi.heuristicindex.IndexClient;
+import io.prestosql.spi.plan.FilterStatsCalculatorService;
 import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.relation.RowExpressionService;
 import io.prestosql.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -116,6 +121,10 @@ public class HiveConnectorFactory
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(HiveCatalogName.class).toInstance(new HiveCatalogName(catalogName));
                         binder.bind(IndexClient.class).toInstance(context.getIndexClient());
+                        binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
+                        binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
+                        binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
+                        binder.bind(FilterStatsCalculatorService.class).toInstance(context.getFilterStatsCalculatorService());
                     });
 
             Injector injector = app
@@ -136,6 +145,7 @@ public class HiveConnectorFactory
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
             ConnectorAccessControl accessControl = new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class));
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
+            ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
 
             return new HiveConnector(
                     lifeCycleManager,
@@ -152,7 +162,8 @@ public class HiveConnectorFactory
                     hiveTableProperties.getTableProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     accessControl,
-                    classLoader);
+                    classLoader,
+                    planOptimizerProvider);
         }
         catch (Exception e) {
             throwIfUnchecked(e);

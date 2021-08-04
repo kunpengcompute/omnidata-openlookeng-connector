@@ -24,6 +24,7 @@ import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorPlanOptimizerProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SystemTable;
@@ -61,6 +62,7 @@ public class HiveConnector
 
     private final ConnectorAccessControl accessControl;
     private final ClassLoader classLoader;
+    private final ConnectorPlanOptimizerProvider planOptimizerProvider;
 
     private final HiveTransactionManager transactionManager;
 
@@ -79,7 +81,8 @@ public class HiveConnector
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> analyzeProperties,
             ConnectorAccessControl accessControl,
-            ClassLoader classLoader)
+            ClassLoader classLoader,
+            ConnectorPlanOptimizerProvider planOptimizerProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadata is null");
@@ -96,6 +99,7 @@ public class HiveConnector
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
+        this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
     }
 
     @Override
@@ -226,5 +230,11 @@ public class HiveConnector
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return new ClassLoaderSafeConnectorMetadata(metadataFactory.get(), classLoader);
         }
+    }
+
+    @Override
+    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
+    {
+        return planOptimizerProvider;
     }
 }

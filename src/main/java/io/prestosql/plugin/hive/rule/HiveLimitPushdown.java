@@ -1,0 +1,122 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.prestosql.plugin.hive.rule;
+
+import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.prestosql.plugin.hive.HiveOffloadExpression;
+import io.prestosql.plugin.hive.HiveSessionProperties;
+import io.prestosql.plugin.hive.HiveTableHandle;
+import io.prestosql.spi.ConnectorPlanOptimizer;
+import io.prestosql.spi.SymbolAllocator;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.metadata.TableHandle;
+import io.prestosql.spi.plan.LimitNode;
+import io.prestosql.spi.plan.PlanNode;
+import io.prestosql.spi.plan.PlanNodeIdAllocator;
+import io.prestosql.spi.plan.PlanVisitor;
+import io.prestosql.spi.plan.TableScanNode;
+import io.prestosql.spi.type.Type;
+
+import java.util.Map;
+import java.util.OptionalLong;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.hive.rule.HivePushdownUtil.isColumnsCanOffload;
+
+public class HiveLimitPushdown
+        implements ConnectorPlanOptimizer
+{
+    private static final Logger Log = Logger.get(HiveLimitPushdown.class);
+
+    @Override
+    public PlanNode optimize(
+            PlanNode maxSubPlan,
+            ConnectorSession session,
+            Map<String, Type> types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator)
+    {
+        if (!HiveSessionProperties.isOmniDataEnabled(session)) {
+            return maxSubPlan;
+        }
+        return maxSubPlan.accept(new Visitor(types), null);
+    }
+
+    private class Visitor
+            extends PlanVisitor<PlanNode, Void>
+    {
+        private final Map<String, Type> types;
+
+        public Visitor(Map<String, Type> types)
+        {
+            this.types = types;
+        }
+
+        @Override
+        public PlanNode visitPlan(PlanNode node, Void context)
+        {
+            ImmutableList.Builder<PlanNode> children = ImmutableList.builder();
+            boolean changed = false;
+            for (PlanNode child : node.getSources()) {
+                PlanNode newChild = child.accept(this, null);
+                if (newChild != child) {
+                    changed = true;
+                }
+                children.add(newChild);
+            }
+
+            if (!changed) {
+                return node;
+            }
+            return node.replaceChildren(children.build());
+        }
+
+        @Override
+        public PlanNode visitLimit(LimitNode limitNode, Void context)
+        {
+            if (!(limitNode.getSource() instanceof TableScanNode && limitNode.isPartial())) {
+                return visitPlan(limitNode, context);
+            }
+            checkArgument(limitNode.getCount() >= 0, "limit must be at least zero");
+            TableScanNode tableScan = (TableScanNode) limitNode.getSource();
+            TableHandle tableHandle = tableScan.getTable();
+
+            if (!isColumnsCanOffload(tableHandle.getConnectorHandle(), tableScan.getOutputSymbols(), types)) {
+                return visitPlan(limitNode, context);
+            }
+
+            HiveOffloadExpression offloadExpression = ((HiveTableHandle) tableHandle.getConnectorHandle()).getOffloadExpression();
+            TableHandle newTableHandle =
+                    new TableHandle(
+                    tableHandle.getCatalogName(),
+                    ((HiveTableHandle) tableHandle.getConnectorHandle()).withOffloadExpression(offloadExpression.updateLimit(OptionalLong.of(limitNode.getCount()))),
+                    tableHandle.getTransaction(),
+                    tableHandle.getLayout());
+            TableScanNode newTableScan =
+                    new TableScanNode(
+                    tableScan.getId(),
+                    newTableHandle,
+                    tableScan.getOutputSymbols(),
+                    tableScan.getAssignments(),
+                    tableScan.getEnforcedConstraint(),
+                    tableScan.getPredicate(),
+                    tableScan.getStrategy(),
+                    tableScan.getReuseTableScanMappingId(),
+                    tableScan.getConsumerTableScanNodeCount(),
+                    tableScan.isForDelete());
+            return newTableScan;
+        }
+    }
+}
