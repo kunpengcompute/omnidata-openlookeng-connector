@@ -43,9 +43,9 @@ public class HivePlugin
     private final String name;
     private final Optional<HiveMetastore> metastore;
 
-    public HivePlugin()
+    public HivePlugin(String name)
     {
-        this("omnidata-openlookeng", Optional.empty());
+        this(name, Optional.empty());
     }
 
     public HivePlugin(String name, Optional<HiveMetastore> metastore)

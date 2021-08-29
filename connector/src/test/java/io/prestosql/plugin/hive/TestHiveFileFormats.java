@@ -606,6 +606,7 @@ public class TestHiveFileFormats
                 false,
                 -1L,
                 ImmutableMap.of(),
+                ImmutableList.of(),
                 Optional.empty(),
                 new HiveOffloadExpression());
 
@@ -661,6 +662,7 @@ public class TestHiveFileFormats
                 false,
                 -1L,
                 ImmutableMap.of(),
+                ImmutableList.of(),
                 Optional.empty(),
                 new HiveOffloadExpression());
 

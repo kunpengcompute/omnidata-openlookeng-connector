@@ -3150,10 +3150,10 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(createTable, "SELECT count(*) FROM orders");
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN orderkey TO new_orderkey");
-        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
+        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT NULL, orderstatus FROM orders where orderstatus != 'dfd'");
         assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN \"$path\" TO test", ".* Cannot rename hidden column");
         assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN orderstatus TO new_orderstatus", "Renaming partition columns is not supported");
-        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
+        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT NULL, orderstatus FROM orders");
         assertUpdate("DROP TABLE test_rename_column");
     }
 
@@ -3198,6 +3198,26 @@ public class TestHiveIntegrationSmokeTest
         assertQuery("SELECT * FROM test_drop_bucketing_column", "SELECT custkey, orderkey,  orderstatus FROM orders");
 
         assertUpdate("DROP TABLE test_drop_bucketing_column");
+    }
+
+    @Test
+    private void testRenameBucketingColumn()
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_rename_bucketing_column\n" +
+                "WITH (\n" +
+                "  bucket_count = 5, bucketed_by = ARRAY ['orderstatus']\n" +
+                ")\n" +
+                "AS\n" +
+                "SELECT custkey, orderkey, orderstatus FROM orders";
+
+        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        assertQuery("SELECT orderkey, orderstatus FROM test_rename_bucketing_column", "SELECT orderkey, orderstatus FROM orders");
+
+        assertUpdate("ALTER TABLE test_rename_bucketing_column RENAME COLUMN orderstatus TO orderstatus1");
+        assertQuery("SELECT orderkey, orderstatus1  FROM test_rename_bucketing_column", "SELECT orderkey, orderstatus  FROM orders");
+
+        assertUpdate("DROP TABLE test_rename_bucketing_column");
     }
 
     @Test
@@ -6571,5 +6591,35 @@ public class TestHiveIntegrationSmokeTest
     {
         assertQueryFails("REFRESH META CACHE FOR abc", "Catalog does not exist:abc");
         assertQueryFails("REFRESH META CACHE FOR abc.def", "Catalog does not exist:abc.def");
+    }
+
+    @Test
+    public void testCachedPlanForTablesWithSameName()
+    {
+        String table = "tab2";
+        String schema = "default";
+        assertUpdate(String.format("CREATE SCHEMA IF NOT EXISTS %s", schema));
+        assertUpdate(String.format("CREATE TABLE %s.%s (a int, b int, c int) with (partitioned_by = ARRAY['c'])", schema, table));
+        assertUpdate(String.format("INSERT INTO %s.%s VALUES (1, 1, 1)", schema, table), 1);
+        assertQuery(String.format("SELECT * FROM %s.%s", schema, table), "VALUES (1, 1, 1)");
+        assertUpdate(String.format("DROP TABLE %s.%s", schema, table));
+        assertUpdate(String.format("CREATE TABLE %s.%s (a int, b int, c int)", schema, table));
+        assertUpdate(String.format("INSERT INTO %s.%s VALUES (1, 1, 1)", schema, table), 1);
+        assertQuery(String.format("SELECT * FROM %s.%s", schema, table), "VALUES (1, 1, 1)");
+        assertUpdate(String.format("DROP TABLE %s.%s", schema, table));
+    }
+
+    @Test
+    public void testAcidFormatColumnNameConflict()
+    {
+        assertUpdate(String.format("CREATE TABLE test_acid_columnname_conflict (originalTransaction int, currentTransaction int," +
+                " rowId int, bucket int, row int )"
+                + "with (transactional=true, format='orc')"));
+
+        assertUpdate(String.format("INSERT INTO test_acid_columnname_conflict VALUES (1, 2, 3, 4, 5)"), 1);
+
+        assertQuery("SELECT * FROM test_acid_columnname_conflict", "VALUES (1, 2, 3, 4, 5)");
+
+        assertUpdate(String.format("DROP TABLE test_acid_columnname_conflict"));
     }
 }

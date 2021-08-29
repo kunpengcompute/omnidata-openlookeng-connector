@@ -85,8 +85,6 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
-import static io.prestosql.spi.relation.ExpressionOptimizerProvider.Level.OPTIMIZED;
-import static io.prestosql.spi.relation.ExpressionOptimizerProvider.Level.SERIALIZABLE;
 import static java.util.Objects.requireNonNull;
 
 public class HiveFilterPushdown
@@ -223,7 +221,7 @@ public class HiveFilterPushdown
         HiveOffloadExpression oldOffloadExpression = hiveTableHandle.getOffloadExpression();
         RowExpression filterExpression = TRUE_CONSTANT.equals(oldOffloadExpression.getFilterExpression()) ?
                 expressionExtractResult.getOffloadExpression() : logicalRowExpressions.combineConjuncts(oldOffloadExpression.getFilterExpression(), expressionExtractResult.getOffloadExpression());
-        RowExpression optimizedExpression = rowExpressionService.getExpressionOptimizer().optimize(filterExpression, SERIALIZABLE, session);
+        RowExpression optimizedExpression = filterExpression;
         if (true != determineOffloadExpression(optimizedExpression, tableHandle, metadata, session, rowExpressionService, columnHandlesMap, filterCalculatorService, typesMap)) {
             return new ConnectorPushdownFilterResult(Optional.empty(), TRUE_CONSTANT);
         }
@@ -461,19 +459,8 @@ public class HiveFilterPushdown
                 return bindings.get(column).getValue();
             };
 
-            // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
-            // spurious query failures for partitions that would otherwise be filtered out.
-            Object optimized = null;
-            try {
-                optimized = evaluator.getExpressionOptimizer().optimize(expression, OPTIMIZED, session, variableResolver);
-            }
-            catch (PrestoException e) {
-                propagateIfUnhandled(e);
-                return true;
-            }
-
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            return !Boolean.FALSE.equals(optimized) && optimized != null && (!(optimized instanceof ConstantExpression) || !((ConstantExpression) optimized).isNull());
+            return !Boolean.FALSE.equals(expression) && expression != null && (!(expression instanceof ConstantExpression) || !((ConstantExpression) expression).isNull());
         }
 
         private static void propagateIfUnhandled(PrestoException e)

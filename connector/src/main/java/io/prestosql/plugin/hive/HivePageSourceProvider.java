@@ -31,7 +31,6 @@ import io.prestosql.plugin.hive.HiveBucketing.BucketingVersion;
 import io.prestosql.plugin.hive.coercions.HiveCoercer;
 import io.prestosql.plugin.hive.omnidata.OmniDataNodeManager;
 import io.prestosql.plugin.hive.orc.OrcConcatPageSource;
-import io.prestosql.plugin.hive.rule.HiveFilterPushdown;
 import io.prestosql.plugin.hive.util.IndexCache;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -62,6 +61,8 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.serde.serdeConstants;
+import org.apache.hadoop.hive.serde2.SerDeUtils;
 import org.eclipse.jetty.util.URIUtil;
 
 import javax.inject.Inject;
@@ -70,6 +71,7 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -91,14 +93,16 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static io.prestosql.plugin.hive.HiveUtil.isPartitionFiltered;
 import static io.prestosql.plugin.hive.coercions.HiveCoercer.createCoercer;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.META_PARTITION_COLUMNS;
 import static io.prestosql.plugin.hive.util.PageSourceUtil.buildPushdownContext;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private static final Logger log = Logger.get(HiveFilterPushdown.class);
+    private static final Logger log = Logger.get(HivePageSourceProvider.class);
     private final HdfsEnvironment hdfsEnvironment;
     private final Set<HiveRecordCursorProvider> cursorProviders;
     private final TypeManager typeManager;
@@ -249,6 +253,24 @@ public class HivePageSourceProvider
         Configuration configuration = hdfsEnvironment.getConfiguration(
                 new HdfsEnvironment.HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
+        Properties schema = hiveSplit.getSchema();
+        String columnNameDelimiter = schema.containsKey(serdeConstants.COLUMN_NAME_DELIMITER) ? schema
+                .getProperty(serdeConstants.COLUMN_NAME_DELIMITER) : String.valueOf(SerDeUtils.COMMA);
+        List<String> partitionColumnNames;
+        if (schema.containsKey(META_PARTITION_COLUMNS)) {
+            partitionColumnNames = Arrays.asList(schema.getProperty(META_PARTITION_COLUMNS).split(columnNameDelimiter));
+        }
+        else if (schema.containsKey(META_TABLE_COLUMNS)) {
+            partitionColumnNames = Arrays.asList(schema.getProperty(META_TABLE_COLUMNS).split(columnNameDelimiter));
+        }
+        else {
+            partitionColumnNames = new ArrayList<>();
+        }
+
+        List<String> tableColumns = hiveColumns.stream().map(cols -> cols.getName()).collect(toList());
+
+        List<String> missingColumns = tableColumns.stream().filter(cols -> !partitionColumnNames.contains(cols)).collect(toList());
+
         List<IndexMetadata> indexes = new ArrayList<>();
         if (indexCache != null && session.isHeuristicIndexFilterEnabled()) {
             indexes.addAll(this.indexCache.getIndices(session
@@ -300,7 +322,7 @@ public class HivePageSourceProvider
                     hiveTable.getDisjunctCompactEffectivePredicate(),
                     hiveSplit.getBucketConversion(),
                     hiveSplit.getBucketNumber(),
-                    hiveSplit.getLastModifiedTime());
+                    hiveSplit.getLastModifiedTime(), missingColumns);
         }
 
         Optional<String> omniDataAddress = getSplitOmniDataAddr(hiveTable.getOffloadExpression(), hiveSplit);
@@ -330,6 +352,7 @@ public class HivePageSourceProvider
                 hiveSplit.isCacheable(),
                 hiveSplit.getLastModifiedTime(),
                 hiveSplit.getCustomSplitInfo(),
+                missingColumns,
                 omniDataAddress,
                 hiveTable.getOffloadExpression());
         if (pageSource.isPresent()) {
@@ -373,6 +396,7 @@ public class HivePageSourceProvider
      * @param predicateColumns Map of all columns handles being part of predicate
      * @param additionPredicates Predicates related to OR clause.
      * Remaining columns are same as for createHivePageSource.
+     * @param missingColumns
      * @return
      */
     private static ConnectorPageSource createSelectivePageSource(
@@ -392,7 +416,7 @@ public class HivePageSourceProvider
             Optional<List<TupleDomain<HiveColumnHandle>>> additionPredicates,
             Optional<HiveSplit.BucketConversion> bucketConversion,
             OptionalInt bucketNumber,
-            long dataSourceLastModifiedTime)
+            long dataSourceLastModifiedTime, List<String> missingColumns)
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
                 .addAll(predicateColumns.values())
@@ -407,7 +431,7 @@ public class HivePageSourceProvider
                 split.getColumnCoercions(),
                 path,
                 bucketNumber,
-                true);
+                true, missingColumns);
 
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(
                 columnMappings);
@@ -493,7 +517,7 @@ public class HivePageSourceProvider
             SplitMetadata splitMetadata,
             boolean splitCacheable,
             long dataSourceLastModifiedTime,
-            Map<String, String> customSplitInfo,
+            Map<String, String> customSplitInfo, List<String> missingColumns,
             Optional<String> omniDataAddress,
             HiveOffloadExpression expression)
     {
@@ -504,7 +528,7 @@ public class HivePageSourceProvider
                 columnCoercions,
                 path,
                 bucketNumber,
-                true);
+                true, missingColumns);
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(
                 columnMappings);
 
@@ -730,7 +754,7 @@ public class HivePageSourceProvider
         public String getPrefilledValue()
         {
             checkState(kind == ColumnMappingKind.PREFILLED);
-            return prefilledValue.get();
+            return prefilledValue.isPresent() ? prefilledValue.get() : HIVE_DEFAULT_PARTITION_VALUE;
         }
 
         public HiveColumnHandle getHiveColumnHandle()
@@ -762,6 +786,7 @@ public class HivePageSourceProvider
          * @param requiredInterimColumns columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
          * @param columnCoercions map from hive column index to hive type
          * @param bucketNumber empty if table is not bucketed, a number within [0, # bucket in table) otherwise
+         * @param missingColumns
          */
         public static List<ColumnMapping> buildColumnMappings(
                 List<HivePartitionKey> partitionKeys,
@@ -770,7 +795,7 @@ public class HivePageSourceProvider
                 Map<Integer, HiveType> columnCoercions,
                 Path path,
                 OptionalInt bucketNumber,
-                boolean filterPushDown)
+                boolean filterPushDown, List<String> missingColumns)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
             int regularIndex = 0;
@@ -779,13 +804,14 @@ public class HivePageSourceProvider
             for (HiveColumnHandle column : columns) {
                 Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
                 if (column.getColumnType() == REGULAR) {
+                    if (missingColumns.contains(column.getColumnName())) {
+                        columnMappings.add(new ColumnMapping(ColumnMappingKind.PREFILLED, column, Optional.empty(),
+                                OptionalInt.empty(), coercionFrom));
+                        continue;
+                    }
                     checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
 
                     columnMappings.add(regular(column, regularIndex, coercionFrom));
-                    regularIndex++;
-                }
-                else if (column.getColumnType() == DUMMY_OFFLOADED) {
-                    columnMappings.add(aggregated(column, regularIndex));
                     regularIndex++;
                 }
                 else if (HiveColumnHandle.isUpdateColumnHandle(column)) {
