@@ -366,11 +366,10 @@ public class HiveFilterPushdown
                 return filterNode;
             }
 
-            if (!isColumnsCanOffload(tableScan.getTable().getConnectorHandle(), tableScan.getOutputSymbols(), types)) {
+            if (!HivePushdownUtil.isOmniDataNodesNormal() || !isColumnsCanOffload(tableScan.getTable().getConnectorHandle(), tableScan.getOutputSymbols(), types)) {
                 return filterNode;
             }
 
-            // TODO: omnidata device cpu check
             RowExpression expression = filterNode.getPredicate();
             TableHandle tableHandle = tableScan.getTable();
             HiveMetadata hiveMetadata = getMetadata(tableHandle);

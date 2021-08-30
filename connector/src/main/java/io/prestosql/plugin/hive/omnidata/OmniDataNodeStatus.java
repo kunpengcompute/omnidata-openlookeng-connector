@@ -14,15 +14,13 @@
  */
 package io.prestosql.plugin.hive.omnidata;
 
-import io.prestosql.spi.HostAddress;
-
 public class OmniDataNodeStatus
 {
-    private HostAddress hostAddress;
+    private String hostAddress;
     private int runningTaskNumber;
     private int maxTaskNumber;
 
-    public OmniDataNodeStatus(HostAddress hostAddress, int runningTask, int maxTaskNumber)
+    public OmniDataNodeStatus(String hostAddress, int runningTask, int maxTaskNumber)
     {
         this.hostAddress = hostAddress;
         this.runningTaskNumber = runningTask;
@@ -34,7 +32,7 @@ public class OmniDataNodeStatus
         return maxTaskNumber;
     }
 
-    public HostAddress getHostAddress()
+    public String getHostAddress()
     {
         return hostAddress;
     }

@@ -73,6 +73,9 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_CLIENT_TARGET_LIST;
+import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_SSL_ENABLED;
+import static com.huawei.boostkit.omnidata.OmniDataProperty.PKI_DIR;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.parquet.ParquetTypeUtils.getColumnIO;
 import static io.prestosql.parquet.ParquetTypeUtils.getDescriptors;
@@ -107,7 +110,10 @@ public class ParquetPageSourceFactory
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+
     private final DateTimeZone timeZone;
+    private final boolean isOmniDataSslEnabled;
+    private final String omniDataPkiDir;
     private String omniDataServerTarget;
 
     @Inject
@@ -116,7 +122,9 @@ public class ParquetPageSourceFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
-        timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getParquetDateTimeZone();
+        this.timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getParquetDateTimeZone();
+        this.isOmniDataSslEnabled = hiveConfig.isOmniDataSslEnabled();
+        this.omniDataPkiDir = hiveConfig.getOmniDataPkiDir();
     }
 
     @Override
@@ -154,7 +162,8 @@ public class ParquetPageSourceFactory
         if (HiveSessionProperties.isOmniDataEnabled(session)
                 && omniDataAddress.isPresent()
                 && offloadExpression.isPresent()) {
-            com.huawei.boostkit.omnidata.model.Predicate predicate = buildPushdownContext(columns, offloadExpression, typeManager);
+            com.huawei.boostkit.omnidata.model.Predicate predicate =
+                    buildPushdownContext(columns, offloadExpression, typeManager, effectivePredicate);
             return Optional.of(createParquetPushDownPageSource(
                     path,
                     start,
@@ -342,9 +351,13 @@ public class ParquetPageSourceFactory
     {
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         Properties transProperties = new Properties();
-        transProperties.put("grpc.client.target", omniDataServerTarget);
+        transProperties.put(GRPC_CLIENT_TARGET_LIST, omniDataServerTarget);
+        transProperties.put(GRPC_SSL_ENABLED, String.valueOf(isOmniDataSslEnabled));
+        if (isOmniDataSslEnabled) {
+            transProperties.put(PKI_DIR, omniDataPkiDir);
+        }
 
-        DataSource parquetPushDownDataSource = new com.huawei.boostkit.omnidata.model.datasource.hdfs.HdfsParquetDataSource(path.toString(), start, length, fileSize, false);
+        DataSource parquetPushDownDataSource = new com.huawei.boostkit.omnidata.model.datasource.hdfs.HdfsParquetDataSource(path.toString(), start, length, false);
 
         TaskSource readTaskInfo = new TaskSource(
                 parquetPushDownDataSource,

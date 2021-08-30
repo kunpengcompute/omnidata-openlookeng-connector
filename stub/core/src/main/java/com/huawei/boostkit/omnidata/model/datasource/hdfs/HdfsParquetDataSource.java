@@ -17,6 +17,6 @@ package com.huawei.boostkit.omnidata.model.datasource.hdfs;
 import com.huawei.boostkit.omnidata.model.datasource.DataSource;
 
 public class HdfsParquetDataSource extends DataSource {
-    public HdfsParquetDataSource(String path, long start, long length, long fileSize, boolean useColumnNames) {
+    public HdfsParquetDataSource(String path, long start, long length, boolean useColumnNames) {
     }
 }

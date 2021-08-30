@@ -57,7 +57,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.prestosql.spi.HostAddress.fromParts;
-import static io.prestosql.spi.HostAddress.fromString;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -67,7 +66,7 @@ public class OmniDataNodeManager
     private static final Logger log = Logger.get(OmniDataNodeManager.class);
 
     @GuardedBy("this")
-    private Map<HostAddress, OmniDataNodeStatus> allNodes = new ConcurrentHashMap<>();
+    private Map<String, OmniDataNodeStatus> allNodes = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService nodeStateUpdateExecutor;
 
@@ -123,20 +122,17 @@ public class OmniDataNodeManager
         allNodes.clear();
 
         Set<ServiceDescriptor> services = getServices().getServiceDescriptors().stream().collect(toImmutableSet());
-
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
-            String localHdfsAddress = service.getProperties().get("local.hdfs.server.address");
+            String localHdfsIpAddress = service.getProperties().get("local.hdfs.server.address");
             String grpcPort = service.getProperties().get("grpc.server.port");
             String runningTaskNumber = service.getProperties().get("runningTaskNumber");
             String maxTaskNumber = service.getProperties().get("maxTaskNumber");
-
-            if (uri.getHost() != null && localHdfsAddress != null) {
+            if (uri.getHost() != null && localHdfsIpAddress != null) {
                 try {
-                    OmniDataNodeStatus nodeStatus = new OmniDataNodeStatus(fromParts(uri.getHost(), Integer.parseInt(grpcPort)),
+                    OmniDataNodeStatus nodeStatus = new OmniDataNodeStatus(fromParts(uri.getHost(), Integer.parseInt(grpcPort)).toString(),
                             Integer.parseInt(runningTaskNumber), Integer.parseInt(maxTaskNumber));
-
-                    allNodes.put(fromString(localHdfsAddress), nodeStatus);
+                    allNodes.put(localHdfsIpAddress, nodeStatus);
                 }
                 catch (RuntimeException ignored) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "omnidata node manger receive wrong arguments");
@@ -206,7 +202,7 @@ public class OmniDataNodeManager
         return null;
     }
 
-    public synchronized Map<HostAddress, OmniDataNodeStatus> getAllNodes()
+    public synchronized Map<String, OmniDataNodeStatus> getAllNodes()
     {
         return allNodes;
     }

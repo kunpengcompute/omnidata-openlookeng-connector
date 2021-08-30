@@ -26,6 +26,8 @@ import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
 import io.prestosql.plugin.hive.gcs.HiveGcsModule;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
+import io.prestosql.plugin.hive.omnidata.OmniDataNodeManager;
+import io.prestosql.plugin.hive.rule.HivePushdownUtil;
 import io.prestosql.plugin.hive.s3.HiveS3Module;
 import io.prestosql.plugin.hive.security.HiveSecurityModule;
 import io.prestosql.plugin.hive.security.SystemTableAwareAccessControl;
@@ -42,6 +44,7 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorPlanOptimizerProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -52,6 +55,7 @@ import io.prestosql.spi.function.StandardFunctionResolution;
 import io.prestosql.spi.heuristicindex.IndexClient;
 import io.prestosql.spi.plan.FilterStatsCalculatorService;
 import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.relation.RowExpressionService;
 import io.prestosql.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -122,6 +126,7 @@ public class HiveConnectorFactory
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
                         binder.bind(FilterStatsCalculatorService.class).toInstance(context.getFilterStatsCalculatorService());
+                        binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                     });
 
             Injector injector = app
@@ -142,6 +147,8 @@ public class HiveConnectorFactory
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
             ConnectorAccessControl accessControl = new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class));
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
+            ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
+            HivePushdownUtil.setOmniDataNodeManager(injector.getInstance(OmniDataNodeManager.class));
 
             return new HiveConnector(
                     lifeCycleManager,
@@ -158,6 +165,7 @@ public class HiveConnectorFactory
                     hiveTableProperties.getTableProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     accessControl,
+                    planOptimizerProvider,
                     classLoader);
         }
         catch (Exception e) {

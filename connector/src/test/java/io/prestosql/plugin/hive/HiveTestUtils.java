@@ -107,7 +107,7 @@ public final class HiveTestUtils
                         Duration.ofMillis(new HiveConfig().getOrcBloomFiltersCacheTtl().toMillis()),
                         new HiveConfig().getOrcRowDataCacheMaximumWeight(), Duration.ofMillis(new HiveConfig().getOrcRowDataCacheTtl().toMillis()),
                         new HiveConfig().isOrcCacheStatsMetricCollectionEnabled())))
-                .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats, hiveConfig))
+                .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats, new HiveConfig()))
                 .build();
     }
 

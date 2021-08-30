@@ -7,7 +7,7 @@
     <groupId>com.huawei.boostkit</groupId>
     <artifactId>omniDataStub</artifactId>
     <packaging>pom</packaging>
-    <version>1.0.0-aarch64</version>
+    <version>1.0.0</version>
 
     <modules>
         <module>core</module>
@@ -16,10 +16,28 @@
 
     <properties>
         <dep.hetu.version>1.4.0-SNAPSHOT</dep.hetu.version>
-        <project.version>1.0.0-aarch64</project.version>
+        <dep.os.arch>${os.detected.arch}</dep.os.arch>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.huawei.boostkit</groupId>
+                <artifactId>boostkit-omnidata-client</artifactId>
+                <version>${project.version}</version>
+                <classifier>${dep.os.arch}</classifier>
+            </dependency>
+            <dependency>
+                <groupId>com.huawei.boostkit</groupId>
+                <artifactId>boostkit-omnidata-core</artifactId>
+                <version>${project.version}</version>
+                <classifier>${dep.os.arch}</classifier>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
+
         <dependency>
             <groupId>io.hetu.core</groupId>
             <artifactId>presto-spi</artifactId>
@@ -31,12 +49,33 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration combine.children="append">
-                    <fork>false</fork>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.1.2</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                        </manifest>
+                    </archive>
                 </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>${dep.os.arch}</classifier>
+                            <archive>
+                                <addMavenDescriptor>false</addMavenDescriptor>
+                            </archive>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>default-jar</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

@@ -19,6 +19,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -37,6 +38,9 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.io.File;
+import java.io.IOException;
+import java.text.Normalizer;
 import java.util.List;
 import java.util.Optional;
 import java.util.TimeZone;
@@ -61,6 +65,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 })
 public class HiveConfig
 {
+    private static final Logger log = Logger.get(HiveConfig.class);
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
@@ -209,6 +214,8 @@ public class HiveConfig
     private boolean autoVacuumEnabled;
     private boolean orcPredicatePushdownEnabled;
 
+    private boolean omniDataSslEnabled;
+    private String omniDataPkiDir = "";
     private boolean omniDataEnabled;
     private boolean filterOffloadEnabled = true;
     private double minFilterOffloadFactor = 0.5;
@@ -1898,6 +1905,37 @@ public class HiveConfig
     public boolean getWorkerMetaStoreCacheEnabled()
     {
         return this.workerMetaStoreCacheEnabled;
+    }
+
+    public boolean isOmniDataSslEnabled()
+    {
+        return omniDataSslEnabled;
+    }
+
+    @Config("omni-data.ssl.enabled")
+    public void setOmniDataSslEnabled(boolean omniDataSslEnabled)
+    {
+        this.omniDataSslEnabled = omniDataSslEnabled;
+    }
+
+    public String getOmniDataPkiDir()
+    {
+        return omniDataPkiDir;
+    }
+
+    @Config("omni-data.ssl.pki.dir")
+    public void setOmniDataPkiDir(String omniDataPkiDir)
+    {
+        String finalDir;
+        try {
+            String normalizePath = Normalizer.normalize(omniDataPkiDir, Normalizer.Form.NFKC);
+            finalDir = new File(normalizePath).getCanonicalPath();
+        }
+        catch (IOException | IllegalArgumentException exception) {
+            log.error("omni-data.ssl.pki.dir %s is invalid, exception %s" + omniDataPkiDir, exception.getMessage());
+            return;
+        }
+        this.omniDataPkiDir = finalDir;
     }
 
     @Config("hive.filter-offload-enabled")

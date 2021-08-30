@@ -94,7 +94,7 @@ public class HiveLimitPushdown
             TableScanNode tableScan = (TableScanNode) limitNode.getSource();
             TableHandle tableHandle = tableScan.getTable();
 
-            if (!isColumnsCanOffload(tableHandle.getConnectorHandle(), tableScan.getOutputSymbols(), types)) {
+            if (!HivePushdownUtil.isOmniDataNodesNormal() || !isColumnsCanOffload(tableHandle.getConnectorHandle(), tableScan.getOutputSymbols(), types)) {
                 return visitPlan(limitNode, context);
             }
 

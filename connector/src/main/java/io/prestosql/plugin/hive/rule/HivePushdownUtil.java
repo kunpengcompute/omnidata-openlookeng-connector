@@ -19,6 +19,8 @@ import com.huawei.boostkit.omnidata.exception.OmniExpressionChecker;
 import io.prestosql.expressions.DefaultRowExpressionTraversalVisitor;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveTableHandle;
+import io.prestosql.plugin.hive.omnidata.OmniDataNodeManager;
+import io.prestosql.plugin.hive.omnidata.OmniDataNodeStatus;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.plan.Symbol;
@@ -29,12 +31,16 @@ import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOADED;
 
 public class HivePushdownUtil
 {
+    private static final double OMNIDATA_BUSY_PERCENT = 0.8;
+    private static Optional<OmniDataNodeManager> omniDataNodeManager;
+
     private HivePushdownUtil() {}
 
     public static Set<HiveColumnHandle> getDataSourceColumns(TableScanNode node)
@@ -82,6 +88,32 @@ public class HivePushdownUtil
         for (Symbol symbol : outputSymbols) {
             Type type = typesMap.get(symbol.getName());
             if (!OmniExpressionChecker.checkType(type)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static void setOmniDataNodeManager(OmniDataNodeManager manager)
+    {
+        omniDataNodeManager = Optional.of(manager);
+    }
+
+    /**
+     * Check that all omniDatas nodes are in the normal state.
+     *
+     * @return true/false
+     */
+    public static boolean isOmniDataNodesNormal()
+    {
+        if (!omniDataNodeManager.isPresent()) {
+            return false;
+        }
+        Map<String, OmniDataNodeStatus> nodeStatusMap = omniDataNodeManager.get().getAllNodes();
+        // TODO: check online node number
+        for (Map.Entry<String, OmniDataNodeStatus> entry : nodeStatusMap.entrySet()) {
+            OmniDataNodeStatus omniDataNode = entry.getValue();
+            if (omniDataNode.getRunningTaskNumber() > omniDataNode.getMaxTaskNumber() * OMNIDATA_BUSY_PERCENT) {
                 return false;
             }
         }
