@@ -23,6 +23,8 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveOffloadExpression;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.plan.Symbol;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.relation.CallExpression;
 import io.prestosql.spi.relation.InputReferenceExpression;
 import io.prestosql.spi.relation.RowExpression;
@@ -46,6 +48,7 @@ import static io.prestosql.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOADED;
 import static io.prestosql.plugin.hive.HiveColumnHandle.DUMMY_OFFLOADED_COLUMN_INDEX;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class PageSourceUtil
 {
@@ -68,8 +71,9 @@ public class PageSourceUtil
             return builder.build();
         }
 
-        Map<String, Integer> nameMap = layoutMap.entrySet().stream().collect(Collectors.toMap(key -> key.getKey().getName(), val -> val.getValue()));
-        Map<String, Type> typeMap = layoutMap.entrySet().stream().collect(Collectors.toMap(key -> key.getKey().getName(), val -> val.getKey().getType()));
+        Map<String, Integer> nameMap = layoutMap.entrySet().stream().collect(toMap(key -> key.getKey().getName(), val -> val.getValue()));
+        Map<String, Type> typeMap = layoutMap.entrySet().stream().collect(
+                toMap(key -> key.getKey().getName(), val -> val.getKey().getType()));
         Set<String> columnSet = new HashSet<>();
         for (HiveColumnHandle columnHandle : columns) {
             if (columnHandle.getHiveColumnIndex() == DUMMY_OFFLOADED_COLUMN_INDEX) {
@@ -144,7 +148,10 @@ public class PageSourceUtil
         return Optional.of(new AggregationInfo(functionBuilder.build(), referenceBuilder.build()));
     }
 
-    public static Predicate buildPushdownContext(List<HiveColumnHandle> columns, HiveOffloadExpression expression, TypeManager typeManager)
+    public static Predicate buildPushdownContext(List<HiveColumnHandle> columns,
+            HiveOffloadExpression expression,
+            TypeManager typeManager,
+            TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         // Translate variable reference to input reference because PageFunctionCompiler can only support input reference.
         List<HiveColumnHandle> datasourceColumns = combineDatasourceColumns(columns, expression);
@@ -164,12 +171,15 @@ public class PageSourceUtil
                             typeManager.getType(column.getTypeSignature())));
                 });
 
+        Map<String, Domain> domains = effectivePredicate.getDomains().get().entrySet()
+                .stream().collect(toMap(e -> e.getKey().getName(), Map.Entry::getValue));
+
         return new Predicate(
                 types,
                 pushDownColumns,
                 filter,
                 filterProjections,
-                ImmutableMap.of(),
+                domains,
                 ImmutableMap.of(),
                 aggregationInfo,
                 expression.getLimit());

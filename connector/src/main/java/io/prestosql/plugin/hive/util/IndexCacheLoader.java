@@ -30,12 +30,12 @@ import static java.util.Objects.requireNonNull;
 public class IndexCacheLoader
         extends CacheLoader<IndexCacheKey, List<IndexMetadata>>
 {
-    private static IndexClient indexClient;
+    private final IndexClient indexClient;
 
     @Inject
     public IndexCacheLoader(IndexClient indexClient)
     {
-        IndexCacheLoader.indexClient = indexClient;
+        this.indexClient = indexClient;
     }
 
     @Override
@@ -49,7 +49,7 @@ public class IndexCacheLoader
         long lastModified;
 
         try {
-            lastModified = indexClient.getLastModified(key.getPath());
+            lastModified = indexClient.getLastModifiedTime(key.getPath());
         }
         catch (Exception e) {
             // no lastModified file found, i.e. index doesn't exist

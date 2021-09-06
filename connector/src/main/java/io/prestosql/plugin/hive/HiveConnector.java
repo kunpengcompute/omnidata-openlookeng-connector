@@ -81,8 +81,8 @@ public class HiveConnector
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> analyzeProperties,
             ConnectorAccessControl accessControl,
-            ClassLoader classLoader,
-            ConnectorPlanOptimizerProvider planOptimizerProvider)
+            ConnectorPlanOptimizerProvider planOptimizerProvider,
+            ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadata is null");
@@ -132,6 +132,12 @@ public class HiveConnector
     public ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
         return nodePartitioningProvider;
+    }
+
+    @Override
+    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
+    {
+        return planOptimizerProvider;
     }
 
     @Override
@@ -230,11 +236,5 @@ public class HiveConnector
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return new ClassLoaderSafeConnectorMetadata(metadataFactory.get(), classLoader);
         }
-    }
-
-    @Override
-    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
-    {
-        return planOptimizerProvider;
     }
 }

@@ -26,6 +26,8 @@ import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
 import io.prestosql.plugin.hive.gcs.HiveGcsModule;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
+import io.prestosql.plugin.hive.omnidata.OmniDataNodeManager;
+import io.prestosql.plugin.hive.rule.HivePushdownUtil;
 import io.prestosql.plugin.hive.s3.HiveS3Module;
 import io.prestosql.plugin.hive.security.HiveSecurityModule;
 import io.prestosql.plugin.hive.security.SystemTableAwareAccessControl;
@@ -123,8 +125,8 @@ public class HiveConnectorFactory
                         binder.bind(IndexClient.class).toInstance(context.getIndexClient());
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
-                        binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                         binder.bind(FilterStatsCalculatorService.class).toInstance(context.getFilterStatsCalculatorService());
+                        binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                     });
 
             Injector injector = app
@@ -146,6 +148,7 @@ public class HiveConnectorFactory
             ConnectorAccessControl accessControl = new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class));
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
             ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
+            HivePushdownUtil.setOmniDataNodeManager(injector.getInstance(OmniDataNodeManager.class));
 
             return new HiveConnector(
                     lifeCycleManager,
@@ -162,8 +165,8 @@ public class HiveConnectorFactory
                     hiveTableProperties.getTableProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     accessControl,
-                    classLoader,
-                    planOptimizerProvider);
+                    planOptimizerProvider,
+                    classLoader);
         }
         catch (Exception e) {
             throwIfUnchecked(e);

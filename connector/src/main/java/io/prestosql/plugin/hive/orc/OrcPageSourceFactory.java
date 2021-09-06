@@ -91,6 +91,9 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_CLIENT_TARGET_LIST;
+import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_SSL_ENABLED;
+import static com.huawei.boostkit.omnidata.OmniDataProperty.PKI_DIR;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcReader.handleCacheLoadException;
@@ -145,6 +148,8 @@ public class OrcPageSourceFactory
     private final OrcCacheStore orcCacheStore;
     private final int domainCompactionThreshold;
     private final DateTimeZone legacyTimeZone;
+    private final boolean isOmniDataSslEnabled;
+    private final String omniDataPkiDir;
     private String omniDataServerTarget;
 
     @Inject
@@ -159,6 +164,8 @@ public class OrcPageSourceFactory
         this.domainCompactionThreshold = config.getDomainCompactionThreshold();
         this.legacyTimeZone = requireNonNull(config, "hiveConfig is null").getOrcLegacyDateTimeZone();
         this.omniDataServerTarget = null;
+        this.isOmniDataSslEnabled = config.isOmniDataSslEnabled();
+        this.omniDataPkiDir = config.getOmniDataPkiDir();
     }
 
     @Override
@@ -186,6 +193,10 @@ public class OrcPageSourceFactory
             return Optional.empty();
         }
 
+        // per HIVE-13040 and ORC-162, empty files are allowed
+        if (fileSize == 0) {
+            return Optional.of(new FixedPageSource(ImmutableList.of()));
+        }
         if (omniDataAddress.isPresent()) {
             omniDataServerTarget = omniDataAddress.get();
         }
@@ -198,7 +209,7 @@ public class OrcPageSourceFactory
         if (HiveSessionProperties.isOmniDataEnabled(session)
                 && omniDataAddress.isPresent()
                 && expression.isPresent()) {
-            Predicate predicate = buildPushdownContext(columns, expression, typeManager);
+            Predicate predicate = buildPushdownContext(columns, expression, typeManager, effectivePredicate);
             return Optional.of(createOrcPushDownPageSource(path, start, length, predicate, stats));
         }
 
@@ -388,7 +399,7 @@ public class OrcPageSourceFactory
                         ACID_COLUMN_CURRENT_TRANSACTION,
                         ACID_COLUMN_OPERATION).build();
                 verifyAcidSchema(reader, path);
-                Map<String, OrcColumn> acidColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName());
+                Map<String, OrcColumn> acidColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
                 if (AcidUtils.isDeleteDelta(path.getParent())) {
                     //Avoid reading column data from delete_delta files.
                     // Call will come here in case of Minor VACUUM where all delete_delta files are merge together.
@@ -398,15 +409,15 @@ public class OrcPageSourceFactory
                     fileColumns = acidColumnsByName.get(ACID_COLUMN_ROW_STRUCT).getNestedColumns();
                 }
 
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ORIGINAL_TRANSACTION));
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)));
                 fileReadTypes.add(BIGINT);
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_BUCKET));
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)));
                 fileReadTypes.add(INTEGER);
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ROW_ID));
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
                 fileReadTypes.add(BIGINT);
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_CURRENT_TRANSACTION));
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_CURRENT_TRANSACTION.toLowerCase(ENGLISH)));
                 fileReadTypes.add(BIGINT);
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_OPERATION));
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_OPERATION.toLowerCase(ENGLISH)));
                 fileReadTypes.add(INTEGER);
             }
 
@@ -415,7 +426,7 @@ public class OrcPageSourceFactory
                 verifyFileHasColumnNames(fileColumns, path);
 
                 // Convert column names read from ORC files to lower case to be consistent with those stored in Hive Metastore
-                fileColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName());
+                fileColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
             }
 
             TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder()
@@ -528,7 +539,11 @@ public class OrcPageSourceFactory
     {
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         Properties transProperties = new Properties();
-        transProperties.put("grpc.client.target", omniDataServerTarget);
+        transProperties.put(GRPC_CLIENT_TARGET_LIST, omniDataServerTarget);
+        transProperties.put(GRPC_SSL_ENABLED, String.valueOf(isOmniDataSslEnabled));
+        if (isOmniDataSslEnabled) {
+            transProperties.put(PKI_DIR, omniDataPkiDir);
+        }
 
         DataSource orcPushDownDataSource = new com.huawei.boostkit.omnidata.model.datasource.hdfs.HdfsOrcDataSource(
                 path.toString(),

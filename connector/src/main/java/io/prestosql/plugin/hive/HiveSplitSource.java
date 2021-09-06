@@ -110,7 +110,6 @@ class HiveSplitSource
 
     private final TypeManager typeManager;
     private final HiveStorageFormat hiveStorageFormat;
-    private boolean isOffload;
 
     private HiveSplitSource(
             ConnectorSession session,
@@ -148,51 +147,6 @@ class HiveSplitSource
         this.typeManager = typeManager;
         this.hiveConfig = hiveConfig;
         this.hiveStorageFormat = hiveStorageFormat;
-        this.isOffload = false;
-    }
-
-    public static HiveSplitSource allAtOnce(
-            ConnectorSession session,
-            String databaseName,
-            String tableName,
-            int maxInitialSplits,
-            int maxOutstandingSplits,
-            DataSize maxOutstandingSplitsSize,
-            int maxSplitsPerSecond,
-            HiveSplitLoader splitLoader,
-            Executor executor,
-            CounterStat highMemorySplitSourceCounter,
-            Supplier<List<Set<DynamicFilter>>> dynamicFilterSupplier,
-            Set<TupleDomain<ColumnMetadata>> userDefinedCachePredicates,
-            TypeManager typeManager,
-            HiveConfig hiveConfig,
-            HiveStorageFormat hiveStorageFormat,
-            boolean isOffload)
-    {
-        HiveSplitSource splitSource =
-                HiveSplitSource.allAtOnce(
-                        session,
-                        databaseName,
-                        tableName,
-                        maxInitialSplits,
-                        maxOutstandingSplits,
-                        maxOutstandingSplitsSize,
-                        maxSplitsPerSecond,
-                        splitLoader,
-                        executor,
-                        highMemorySplitSourceCounter,
-                        dynamicFilterSupplier,
-                        userDefinedCachePredicates,
-                        typeManager,
-                        hiveConfig,
-                        hiveStorageFormat);
-        splitSource.setOffload(isOffload);
-        return splitSource;
-    }
-
-    public void setOffload(boolean isOffload)
-    {
-        this.isOffload = isOffload;
     }
 
     public static HiveSplitSource allAtOnce(
@@ -258,46 +212,6 @@ class HiveSplitSource
                 typeManager,
                 hiveConfig,
                 hiveStorageFormat);
-    }
-
-    public static HiveSplitSource bucketed(
-            ConnectorSession session,
-            String databaseName,
-            String tableName,
-            int estimatedOutstandingSplitsPerBucket,
-            int maxInitialSplits,
-            DataSize maxOutstandingSplitsSize,
-            int maxSplitsPerSecond,
-            HiveSplitLoader splitLoader,
-            Executor executor,
-            CounterStat highMemorySplitSourceCounter,
-            Supplier<List<Set<DynamicFilter>>> dynamicFilterSupplier,
-            Set<TupleDomain<ColumnMetadata>> userDefinedCachePredicates,
-            TypeManager typeManager,
-            HiveConfig hiveConfig,
-            HiveStorageFormat hiveStorageFormat,
-            boolean isOffload)
-    {
-        HiveSplitSource splitSource =
-                HiveSplitSource.bucketed(
-                session,
-                databaseName,
-                tableName,
-                estimatedOutstandingSplitsPerBucket,
-                maxInitialSplits,
-                maxOutstandingSplitsSize,
-                maxSplitsPerSecond,
-                splitLoader,
-                executor,
-                highMemorySplitSourceCounter,
-                dynamicFilterSupplier,
-                userDefinedCachePredicates,
-                typeManager,
-                hiveConfig,
-                hiveStorageFormat);
-
-        splitSource.setOffload(isOffload);
-        return splitSource;
     }
 
     public static HiveSplitSource bucketed(
@@ -510,8 +424,7 @@ class HiveSplitSource
                         internalSplit.getDeleteDeltaLocations(),
                         internalSplit.getStartRowOffsetOfFile(),
                         splitCacheable,
-                        internalSplit.getCustomSplitInfo(),
-                        isOffload)));
+                        internalSplit.getCustomSplitInfo())));
 
                 internalSplit.increaseStart(splitBytes);
 
@@ -739,13 +652,13 @@ class HiveSplitSource
     }
 
     @Override
-    public List<ConnectorSplit> groupSmallSplits(List<ConnectorSplit> splitList)
+    public List<ConnectorSplit> groupSmallSplits(List<ConnectorSplit> splitList, int maxGroupSize)
     {
         if (splitList.isEmpty()) {
             return splitList;
         }
 
-        int maxSmallSplitsCanBeGrouped = hiveConfig.getMaxSplitsToGroup();
+        int maxSmallSplitsCanBeGrouped = Math.max(hiveConfig.getMaxSplitsToGroup(), maxGroupSize);
         if (maxSmallSplitsCanBeGrouped < 2) {
             return splitList;
         }

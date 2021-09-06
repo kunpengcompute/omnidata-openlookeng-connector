@@ -259,7 +259,7 @@ public class HivePartialAggregationPushdown
                 return Optional.empty();
             }
 
-            if (!isAggregationPushdownSupported(partialAggregationNode)) {
+            if (!isAggregationPushdownSupported(partialAggregationNode) || !HivePushdownUtil.isOmniDataNodesNormal()) {
                 return Optional.empty();
             }
 
@@ -371,7 +371,7 @@ public class HivePartialAggregationPushdown
             }
             HiveTableHandle tableHandle = (HiveTableHandle) connectorHandle;
             ConnectorMetadata metadata = hiveTransactionManager.get(tableScanNode.getTable().getTransaction());
-            TableStatistics statistics = metadata.getTableStatistics(connectorSession, tableHandle, alwaysTrue(), false);
+            TableStatistics statistics = metadata.getTableStatistics(connectorSession, tableHandle, alwaysTrue(), true);
             if (statistics.getRowCount().isUnknown() || statistics.getRowCount().getValue() < HiveSessionProperties.getMinOffloadRowNumber(connectorSession)) {
                 log.info("Aggregation:Table %s row number[%d], expect min row number[%d].",
                         tableHandle.getTableName(),

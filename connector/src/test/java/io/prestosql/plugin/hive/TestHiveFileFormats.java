@@ -407,7 +407,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withSession(parquetPageSourceSession)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
+                .isReadableByPageSource(new ParquetPageSourceFactory(HiveTestUtils.TYPE_MANAGER, HiveTestUtils.HDFS_ENVIRONMENT, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -430,7 +430,7 @@ public class TestHiveFileFormats
                 .withReadColumns(readColumns)
                 .withSession(parquetPageSourceSession)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
+                .isReadableByPageSource(new ParquetPageSourceFactory(HiveTestUtils.TYPE_MANAGER, HiveTestUtils.HDFS_ENVIRONMENT, STATS, new HiveConfig()));
 
         // test name-based access
         readColumns = Lists.reverse(writeColumns);
@@ -438,7 +438,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withSession(parquetPageSourceSessionUseName)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
+                .isReadableByPageSource(new ParquetPageSourceFactory(HiveTestUtils.TYPE_MANAGER, HiveTestUtils.HDFS_ENVIRONMENT, STATS, new HiveConfig()));
     }
 
     private static List<TestColumn> getTestColumnsSupportedByParquet()
@@ -494,7 +494,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
                 .withSession(parquetPageSourceSession)
-                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
+                .isReadableByPageSource(new ParquetPageSourceFactory(HiveTestUtils.TYPE_MANAGER, HiveTestUtils.HDFS_ENVIRONMENT, STATS, new HiveConfig()));
 
         assertThatFileFormat(AVRO)
                 .withWriteColumns(ImmutableList.of(writeColumn))
@@ -549,7 +549,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(PARQUET)
                 .withColumns(columns)
                 .withSession(parquetPageSourceSession)
-                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()), expectedErrorCode, expectedMessage);
+                .isFailingForPageSource(new ParquetPageSourceFactory(HiveTestUtils.TYPE_MANAGER, HiveTestUtils.HDFS_ENVIRONMENT, STATS, new HiveConfig()), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(SEQUENCEFILE)
                 .withColumns(columns)
@@ -606,8 +606,11 @@ public class TestHiveFileFormats
                 false,
                 -1L,
                 ImmutableMap.of(),
+                ImmutableList.of(),
                 Optional.empty(),
-                new HiveOffloadExpression());
+                new HiveOffloadExpression(),
+                false,
+                "");
 
         RecordCursor cursor = ((RecordPageSource) pageSource.get()).getCursor();
 
@@ -661,8 +664,11 @@ public class TestHiveFileFormats
                 false,
                 -1L,
                 ImmutableMap.of(),
+                ImmutableList.of(),
                 Optional.empty(),
-                new HiveOffloadExpression());
+                new HiveOffloadExpression(),
+                false,
+                "");
 
         assertTrue(pageSource.isPresent());
 

@@ -21,7 +21,6 @@ import io.prestosql.plugin.hive.HiveBucketing.BucketingVersion;
 import io.prestosql.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.prestosql.plugin.hive.coercions.HiveCoercer;
-import io.prestosql.plugin.hive.orc.OrcPushDownPageSource;
 import io.prestosql.plugin.hive.orc.OrcSelectivePageSource;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
@@ -84,7 +83,6 @@ public class HivePageSource
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<DynamicFilterSupplier> dynamicFilterSupplier;
     private boolean isSelectiveRead;
-    private boolean isPushDown;
 
     public HivePageSource(
             List<ColumnMapping> columnMappings,
@@ -128,12 +126,16 @@ public class HivePageSource
             }
 
             if (columnMapping.getKind() == PREFILLED) {
-                prefilledValues[columnIndex] = typedPartitionKey(columnMapping.getPrefilledValue(), type, name);
+                if (columnMapping.getPrefilledValue() == null) {
+                    prefilledValues[columnIndex] = null;
+                }
+                else {
+                    prefilledValues[columnIndex] = typedPartitionKey(columnMapping.getPrefilledValue(), type, name);
+                }
             }
         }
         this.coercers = coercers.build();
         this.isSelectiveRead = delegate instanceof OrcSelectivePageSource;
-        this.isPushDown = delegate instanceof OrcPushDownPageSource;
     }
 
     private static Page extractColumns(Page page, int[] columns)

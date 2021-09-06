@@ -1675,7 +1675,7 @@ public class SemiTransactionalHiveMetastore
 
             if (pathExists(hdfsContext, hdfsEnvironment, currentPath)) {
                 if (!targetPath.equals(currentPath)) {
-                    renamePartitionDirectory(
+                    renameNewPartitionDirectory(
                             hdfsContext,
                             hdfsEnvironment,
                             currentPath,
@@ -1838,13 +1838,13 @@ public class SemiTransactionalHiveMetastore
         private void updatePartitionsStatistics(HiveIdentity identity, HiveMetastore metastore, SchemaTableName schemaTableName, List<UpdateStatisticsOperation> partitionUpdateStatisticsOperations)
         {
             List<String> partitionNames = new ArrayList<>();
-            List<Function<PartitionStatistics, PartitionStatistics>> updateFunctionList = new ArrayList<>();
+            Map<String, Function<PartitionStatistics, PartitionStatistics>> partNamesUpdateFunctionMap = new HashMap<>();
             for (UpdateStatisticsOperation operation : partitionUpdateStatisticsOperations) {
+                partNamesUpdateFunctionMap.put(operation.partitionName.get(), operation::updateStatistics);
                 partitionNames.add(operation.partitionName.get());
-                updateFunctionList.add(operation::updateStatistics);
             }
-            if (partitionNames.size() == updateFunctionList.size() && partitionUpdateStatisticsOperations.size() > 0) {
-                metastore.updatePartitionsStatistics(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNames, updateFunctionList);
+            if (partitionNames.size() == partNamesUpdateFunctionMap.size() && partitionUpdateStatisticsOperations.size() > 0) {
+                metastore.updatePartitionsStatistics(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partNamesUpdateFunctionMap);
             }
         }
 
@@ -2269,25 +2269,6 @@ public class SemiTransactionalHiveMetastore
         else {
             renameDirectory(context, hdfsEnvironment, source, target,
                     () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, target, true)));
-        }
-    }
-
-    private static void renamePartitionDirectory(HdfsContext context,
-            HdfsEnvironment hdfsEnvironment,
-            Path source,
-            Path target,
-            List<DirectoryCleanUpTask> cleanUpTasksForAbort)
-    {
-        try {
-            if (hdfsEnvironment.getFileSystem(context, source).rename(source, target)) {
-                cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, target, true));
-            }
-            else {
-                renameNewPartitionDirectory(context, hdfsEnvironment, source, target, cleanUpTasksForAbort);
-            }
-        }
-        catch (IOException e) {
-            renameNewPartitionDirectory(context, hdfsEnvironment, source, target, cleanUpTasksForAbort);
         }
     }
 
