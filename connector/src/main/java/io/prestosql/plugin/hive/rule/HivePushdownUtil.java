@@ -15,7 +15,7 @@
 package io.prestosql.plugin.hive.rule;
 
 import com.google.common.collect.ImmutableSet;
-import com.huawei.boostkit.omnidata.exception.OmniExpressionChecker;
+import com.huawei.boostkit.omnidata.expression.OmniExpressionChecker;
 import io.prestosql.expressions.DefaultRowExpressionTraversalVisitor;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveTableHandle;

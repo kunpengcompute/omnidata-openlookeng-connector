@@ -17,7 +17,7 @@ package io.prestosql.plugin.hive.rule;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.huawei.boostkit.omnidata.exception.OmniExpressionChecker;
+import com.huawei.boostkit.omnidata.expression.OmniExpressionChecker;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveOffloadExpression;
 import io.prestosql.plugin.hive.HiveTableHandle;

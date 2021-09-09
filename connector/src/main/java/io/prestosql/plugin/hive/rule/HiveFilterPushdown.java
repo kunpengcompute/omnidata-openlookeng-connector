@@ -18,7 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.huawei.boostkit.omnidata.exception.OmniExpressionChecker;
+import com.huawei.boostkit.omnidata.expression.OmniExpressionChecker;
 import io.airlift.log.Logger;
 import io.prestosql.expressions.LogicalRowExpressions;
 import io.prestosql.plugin.hive.HiveColumnHandle;
