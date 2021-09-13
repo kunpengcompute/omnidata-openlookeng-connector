@@ -20,15 +20,15 @@ import io.prestosql.spi.type.Type;
 
 public class OmniExpressionChecker {
     public static boolean checkType(Type type) {
-        return false;
+        return true;
     }
 
     public static boolean checkExpression(RowExpression expression)
     {
-        return false;
+        return true;
     }
 
     public static boolean checkAggregateFunction(CallExpression callExpression) {
-        return false;
+        return true;
     }
 }

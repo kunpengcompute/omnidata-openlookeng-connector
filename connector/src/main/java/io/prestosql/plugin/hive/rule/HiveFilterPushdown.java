@@ -484,7 +484,7 @@ public class HiveFilterPushdown
         return (HiveMetadata) metadata;
     }
 
-    private boolean isOperatorOffloadSupported(ConnectorSession session, TableHandle tableHandle)
+    protected boolean isOperatorOffloadSupported(ConnectorSession session, TableHandle tableHandle)
     {
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(
                 getMetadata(tableHandle).getTableMetadata(session, tableHandle.getConnectorHandle()).getProperties());

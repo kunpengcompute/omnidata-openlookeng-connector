@@ -67,6 +67,8 @@ public class HiveConfig
 {
     private static final Logger log = Logger.get(HiveConfig.class);
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    public static final double MIN_OFFLOAD_FACTOR = 0.5;
+    public static final long MIN_OFFLOAD_ROW_NUM = 500;
 
     private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
     private int maxPartitionsPerScan = 100_000;
@@ -218,10 +220,10 @@ public class HiveConfig
     private String omniDataPkiDir = "";
     private boolean omniDataEnabled;
     private boolean filterOffloadEnabled = true;
-    private double minFilterOffloadFactor = 0.5;
+    private double minFilterOffloadFactor = MIN_OFFLOAD_FACTOR;
     private boolean aggregatorOffloadEnabled = true;
-    private double minAggregatorOffloadFactor = 0.5;
-    private long minOffloadRowNumber = 500;
+    private double minAggregatorOffloadFactor = MIN_OFFLOAD_FACTOR;
+    private long minOffloadRowNumber = MIN_OFFLOAD_ROW_NUM;
     private int hmsWriteBatchSize = 8;
 
     public int getMaxInitialSplits()
@@ -1913,9 +1915,10 @@ public class HiveConfig
     }
 
     @Config("omni-data.ssl.enabled")
-    public void setOmniDataSslEnabled(boolean omniDataSslEnabled)
+    public HiveConfig setOmniDataSslEnabled(boolean omniDataSslEnabled)
     {
         this.omniDataSslEnabled = omniDataSslEnabled;
+        return this;
     }
 
     public String getOmniDataPkiDir()
@@ -1924,8 +1927,11 @@ public class HiveConfig
     }
 
     @Config("omni-data.ssl.pki.dir")
-    public void setOmniDataPkiDir(String omniDataPkiDir)
+    public HiveConfig setOmniDataPkiDir(String omniDataPkiDir)
     {
+        if (omniDataPkiDir.isEmpty()) {
+            return this;
+        }
         String finalDir;
         try {
             String normalizePath = Normalizer.normalize(omniDataPkiDir, Normalizer.Form.NFKC);
@@ -1933,9 +1939,10 @@ public class HiveConfig
         }
         catch (IOException | IllegalArgumentException exception) {
             log.error("omni-data.ssl.pki.dir %s is invalid, exception %s" + omniDataPkiDir, exception.getMessage());
-            return;
+            return this;
         }
         this.omniDataPkiDir = finalDir;
+        return this;
     }
 
     @Config("hive.filter-offload-enabled")
