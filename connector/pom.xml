@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>io.hetu.core</groupId>
-        <artifactId>presto-root</artifactId>
+        <artifactId>omnidata-openlookeng-connector-root</artifactId>
         <version>1.4.0-SNAPSHOT</version>
     </parent>
 
@@ -15,8 +15,9 @@
     <properties>
         <dep.os.arch>${os.detected.arch}</dep.os.arch>
         <dep.grpc.version>1.35.0</dep.grpc.version>
-        <dep.protobuf.version>3.12.0</dep.protobuf.version>
-        <dep.guava.version>30.1-jre</dep.guava.version>
+        <dep.guava.version>30.1.1-jre</dep.guava.version>
+        <dep.arilift.version>206</dep.arilift.version>
+        <dep.jetty.version>9.4.40.v20210413</dep.jetty.version>
     </properties>
 
     <dependencies>
@@ -30,6 +31,13 @@
                     <artifactId>error_prone_annotations</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk15on</artifactId>
+            <version>1.68</version>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- dependency for omnidata grpc -->
@@ -186,6 +194,7 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
+            <version>${dep.arilift.version}</version>
         </dependency>
 
         <dependency>
@@ -202,6 +211,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <version>5.0.1</version>
         </dependency>
 
         <dependency>
@@ -228,6 +238,7 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
+            <version>2.10.9</version>
         </dependency>
 
         <dependency>
@@ -316,7 +327,7 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
-            <scope>provided</scope>
+            <version>0.39</version>
         </dependency>
 
         <dependency>
@@ -500,7 +511,6 @@
                     <artifactId>jackson-module-parameter-names</artifactId>
                 </exclusion>
             </exclusions>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -558,7 +568,6 @@
                     <artifactId>jackson-module-parameter-names</artifactId>
                 </exclusion>
             </exclusions>
-            <scope>provided</scope>
         </dependency>
 
         <!-- for testing -->
@@ -721,6 +730,7 @@
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-util</artifactId>
+            <version>${dep.jetty.version}</version>
         </dependency>
         <dependency>
             <groupId>io.airlift</groupId>
