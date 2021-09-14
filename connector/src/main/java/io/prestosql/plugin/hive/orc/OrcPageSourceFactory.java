@@ -92,8 +92,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_CLIENT_TARGET_LIST;
-import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_SSL_ENABLED;
-import static com.huawei.boostkit.omnidata.OmniDataProperty.PKI_DIR;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcReader.handleCacheLoadException;
@@ -118,6 +116,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcRowIndexCacheE
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcStripeFooterCacheEnabled;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.PageSourceUtil.buildPushdownContext;
+import static io.prestosql.plugin.hive.util.PageSourceUtil.getSslConfiguredProperties;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
@@ -148,8 +147,7 @@ public class OrcPageSourceFactory
     private final OrcCacheStore orcCacheStore;
     private final int domainCompactionThreshold;
     private final DateTimeZone legacyTimeZone;
-    private final boolean isOmniDataSslEnabled;
-    private final String omniDataPkiDir;
+    private final ImmutableMap sslPropertyMap;
     private String omniDataServerTarget;
 
     @Inject
@@ -164,8 +162,7 @@ public class OrcPageSourceFactory
         this.domainCompactionThreshold = config.getDomainCompactionThreshold();
         this.legacyTimeZone = requireNonNull(config, "hiveConfig is null").getOrcLegacyDateTimeZone();
         this.omniDataServerTarget = null;
-        this.isOmniDataSslEnabled = config.isOmniDataSslEnabled();
-        this.omniDataPkiDir = config.getOmniDataPkiDir();
+        this.sslPropertyMap = getSslConfiguredProperties(config);
     }
 
     @Override
@@ -540,10 +537,7 @@ public class OrcPageSourceFactory
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         Properties transProperties = new Properties();
         transProperties.put(GRPC_CLIENT_TARGET_LIST, omniDataServerTarget);
-        transProperties.put(GRPC_SSL_ENABLED, String.valueOf(isOmniDataSslEnabled));
-        if (isOmniDataSslEnabled) {
-            transProperties.put(PKI_DIR, omniDataPkiDir);
-        }
+        transProperties.putAll(sslPropertyMap);
 
         DataSource orcPushDownDataSource = new com.huawei.boostkit.omnidata.model.datasource.hdfs.HdfsOrcDataSource(
                 path.toString(),

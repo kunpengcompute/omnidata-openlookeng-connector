@@ -158,7 +158,7 @@ public class TestHiveConfig
                 .setMinFilterOffloadFactor(MIN_OFFLOAD_FACTOR)
                 .setMinOffloadRowNumber(MIN_OFFLOAD_ROW_NUM)
                 .setOmniDataEnabled(false)
-                .setOmniDataPkiDir("")
+                .setOmniDataSslPkiDir("")
                 .setOmniDataSslEnabled(false)
                 .setMetastoreWriteBatchSize(8));
     }
@@ -422,7 +422,7 @@ public class TestHiveConfig
                 .setMinAggregatorOffloadFactor(0.2)
                 .setMinOffloadRowNumber(100)
                 .setOmniDataSslEnabled(true)
-                .setOmniDataPkiDir("/home/omnidata/pki");
+                .setOmniDataSslPkiDir("/home/omnidata/pki");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

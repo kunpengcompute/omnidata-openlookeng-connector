@@ -34,8 +34,29 @@ public class OmniDataProperty {
     public static final String GRPC_SSL_ENABLED = "grpc.ssl.enabled";
 
     /**
-     * constant String for "pki.dir"
+     * Directory of Public Key Infrastructure.
      */
     public static final String PKI_DIR = "pki.dir";
+
+    /**
+     * Path to the SSL client certificate file.
+     */
+    public static final String GRPC_CLIENT_CERT_PATH = "grpc.client.cert.file.path";
+
+    /**
+     * Path to the SSL private key file.
+     */
+    public static final String GRPC_CLIENT_PRIVATE_KEY_PATH = "grpc.client.private.key.file.path";
+
+    /**
+     * Path to the SSL trust certificate file.
+     */
+    public static final String GRPC_TRUST_CA_PATH = "grpc.trust.ca.file.path";
+
+    /**
+     * Path to the SSL Certificate Revocation List file.
+     */
+    public static final String GRPC_CRL_PATH = "grpc.crl.file.path";
+
 }
 
