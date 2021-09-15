@@ -39,7 +39,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOAD
 public class HivePushdownUtil
 {
     private static final double OMNIDATA_BUSY_PERCENT = 0.8;
-    private static Optional<OmniDataNodeManager> omniDataNodeManager;
+    private static Optional<OmniDataNodeManager> omniDataNodeManager = Optional.empty();
 
     private HivePushdownUtil() {}
 

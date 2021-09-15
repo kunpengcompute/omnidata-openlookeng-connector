@@ -30,6 +30,8 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.plugin.hive.HiveConfig.MIN_OFFLOAD_FACTOR;
+import static io.prestosql.plugin.hive.HiveConfig.MIN_OFFLOAD_ROW_NUM;
 import static io.prestosql.plugin.hive.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveConfig
@@ -150,6 +152,14 @@ public class TestHiveConfig
                 .setVacuumCollectorInterval(new Duration(5, TimeUnit.MINUTES))
                 .setMaxSplitsToGroup(1)
                 .setWorkerMetaStoreCacheEnabled(false)
+                .setAggregatorOffloadEnabled(true)
+                .setFilterOffloadEnabled(true)
+                .setMinAggregatorOffloadFactor(MIN_OFFLOAD_FACTOR)
+                .setMinFilterOffloadFactor(MIN_OFFLOAD_FACTOR)
+                .setMinOffloadRowNumber(MIN_OFFLOAD_ROW_NUM)
+                .setOmniDataEnabled(false)
+                .setOmniDataSslPkiDir("")
+                .setOmniDataSslEnabled(false)
                 .setMetastoreWriteBatchSize(8));
     }
 
@@ -280,6 +290,14 @@ public class TestHiveConfig
                 .put("hive.max-splits-to-group", "20")
                 .put("hive.worker-metastore-cache-enabled", "true")
                 .put("hive.metastore-write-batch-size", "64")
+                .put("hive.aggregator-offload-enabled", "false")
+                .put("hive.filter-offload-enabled", "false")
+                .put("hive.min-aggregator-offload-factor", "0.2")
+                .put("hive.min-filter-offload-factor", "0.3")
+                .put("hive.min-offload-row-number", "100")
+                .put("hive.omnidata-enabled", "true")
+                .put("omni-data.ssl.enabled", "true")
+                .put("omni-data.ssl.pki.dir", "/home/omnidata/pki")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -396,7 +414,15 @@ public class TestHiveConfig
                 .setVacuumCollectorInterval(new Duration(5, TimeUnit.SECONDS))
                 .setMaxSplitsToGroup(20)
                 .setWorkerMetaStoreCacheEnabled(true)
-                .setMetastoreWriteBatchSize(64);
+                .setMetastoreWriteBatchSize(64)
+                .setAggregatorOffloadEnabled(false)
+                .setFilterOffloadEnabled(false)
+                .setOmniDataEnabled(true)
+                .setMinFilterOffloadFactor(0.3)
+                .setMinAggregatorOffloadFactor(0.2)
+                .setMinOffloadRowNumber(100)
+                .setOmniDataSslEnabled(true)
+                .setOmniDataSslPkiDir("/home/omnidata/pki");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

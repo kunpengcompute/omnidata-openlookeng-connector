@@ -67,6 +67,8 @@ public class HiveConfig
 {
     private static final Logger log = Logger.get(HiveConfig.class);
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    public static final double MIN_OFFLOAD_FACTOR = 0.5;
+    public static final long MIN_OFFLOAD_ROW_NUM = 500;
 
     private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
     private int maxPartitionsPerScan = 100_000;
@@ -215,13 +217,19 @@ public class HiveConfig
     private boolean orcPredicatePushdownEnabled;
 
     private boolean omniDataSslEnabled;
-    private String omniDataPkiDir = "";
+    private Optional<String> omniDataSslPkiDir = Optional.empty();
+    private Optional<String> omniDataSslClientCertFilePath = Optional.empty();
+    private Optional<String> omniDataSslPrivateKeyFilePath = Optional.empty();
+    private Optional<String> omniDataSslTrustCertFilePath = Optional.empty();
+    private Optional<String> omniDataSslCrlFilePath = Optional.empty();
+
     private boolean omniDataEnabled;
     private boolean filterOffloadEnabled = true;
-    private double minFilterOffloadFactor = 0.5;
+    private double minFilterOffloadFactor = MIN_OFFLOAD_FACTOR;
     private boolean aggregatorOffloadEnabled = true;
-    private double minAggregatorOffloadFactor = 0.5;
-    private long minOffloadRowNumber = 500;
+    private double minAggregatorOffloadFactor = MIN_OFFLOAD_FACTOR;
+    private long minOffloadRowNumber = MIN_OFFLOAD_ROW_NUM;
+
     private int hmsWriteBatchSize = 8;
 
     public int getMaxInitialSplits()
@@ -1912,30 +1920,98 @@ public class HiveConfig
         return omniDataSslEnabled;
     }
 
-    @Config("omni-data.ssl.enabled")
-    public void setOmniDataSslEnabled(boolean omniDataSslEnabled)
+    private Optional<String> getNormalizedFilePath(String filePath)
     {
-        this.omniDataSslEnabled = omniDataSslEnabled;
+        if (filePath == null || filePath.isEmpty()) {
+            return Optional.empty();
+        }
+        String outputPath;
+        try {
+            String normalizePath = Normalizer.normalize(filePath, Normalizer.Form.NFKC);
+            outputPath = new File(normalizePath).getCanonicalPath();
+        }
+        catch (IOException | IllegalArgumentException exception) {
+            log.error("File path [%s] is invalid, exception %s", filePath, exception.getMessage());
+            return Optional.empty();
+        }
+        File file = new File(outputPath);
+        if (!file.exists()) {
+            log.error("File [%s] is not exist.", outputPath);
+            return Optional.empty();
+        }
+        return Optional.of(outputPath);
     }
 
-    public String getOmniDataPkiDir()
+    @Config("omni-data.ssl.enabled")
+    public HiveConfig setOmniDataSslEnabled(boolean omniDataSslEnabled)
     {
-        return omniDataPkiDir;
+        this.omniDataSslEnabled = omniDataSslEnabled;
+        return this;
+    }
+
+    public Optional<String> getOmniDataSslPkiDir()
+    {
+        return omniDataSslPkiDir;
     }
 
     @Config("omni-data.ssl.pki.dir")
-    public void setOmniDataPkiDir(String omniDataPkiDir)
+    @ConfigDescription("Directory of Public Key Infrastructure.")
+    public HiveConfig setOmniDataSslPkiDir(String omniDataSslPkiDir)
     {
-        String finalDir;
-        try {
-            String normalizePath = Normalizer.normalize(omniDataPkiDir, Normalizer.Form.NFKC);
-            finalDir = new File(normalizePath).getCanonicalPath();
-        }
-        catch (IOException | IllegalArgumentException exception) {
-            log.error("omni-data.ssl.pki.dir %s is invalid, exception %s" + omniDataPkiDir, exception.getMessage());
-            return;
-        }
-        this.omniDataPkiDir = finalDir;
+        this.omniDataSslPkiDir = getNormalizedFilePath(omniDataSslPkiDir);
+        return this;
+    }
+
+    public Optional<String> getOmniDataSslClientCertFilePath()
+    {
+        return omniDataSslClientCertFilePath;
+    }
+
+    @Config("omni-data.ssl.client.cert.file.path")
+    @ConfigDescription("Path to the SSL client certificate file.")
+    public HiveConfig setOmniDataSslClientCertFilePath(String omniDataSslClientCertFilePath)
+    {
+        this.omniDataSslClientCertFilePath = getNormalizedFilePath(omniDataSslClientCertFilePath);
+        return this;
+    }
+
+    public Optional<String> getOmniDataSslPrivateKeyFilePath()
+    {
+        return omniDataSslPrivateKeyFilePath;
+    }
+
+    @Config("omni-data.ssl.private.key.file.path")
+    @ConfigDescription("Path to the SSL private key file.")
+    public HiveConfig setOmniDataSslPrivateKeyFilePath(String omniDataSslPrivateKeyFilePath)
+    {
+        this.omniDataSslPrivateKeyFilePath = getNormalizedFilePath(omniDataSslPrivateKeyFilePath);
+        return this;
+    }
+
+    public Optional<String> getOmniDataSslTrustCertFilePath()
+    {
+        return omniDataSslTrustCertFilePath;
+    }
+
+    @Config("omni-data.ssl.trust.cert.file.path")
+    @ConfigDescription("Path to the SSL trust certificate file.")
+    public HiveConfig setOmniDataSslTrustCertFilePath(String omniDataSslTrustCertFilePath)
+    {
+        this.omniDataSslTrustCertFilePath = getNormalizedFilePath(omniDataSslTrustCertFilePath);
+        return this;
+    }
+
+    public Optional<String> getOmniDataSslCrlFilePath()
+    {
+        return omniDataSslCrlFilePath;
+    }
+
+    @Config("omni-data.ssl.crl.file.path")
+    @ConfigDescription("Path to the SSL Certificate Revocation List file.")
+    public HiveConfig setOmniDataSslCrlFilePath(String omniDataSslCrlFilePath)
+    {
+        this.omniDataSslCrlFilePath = getNormalizedFilePath(omniDataSslCrlFilePath);
+        return this;
     }
 
     @Config("hive.filter-offload-enabled")

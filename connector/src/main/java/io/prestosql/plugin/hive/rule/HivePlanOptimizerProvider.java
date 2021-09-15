@@ -25,7 +25,6 @@ import io.prestosql.spi.function.FunctionMetadataManager;
 import io.prestosql.spi.function.StandardFunctionResolution;
 import io.prestosql.spi.plan.FilterStatsCalculatorService;
 import io.prestosql.spi.relation.RowExpressionService;
-import io.prestosql.spi.type.TypeManager;
 
 import java.util.Set;
 import java.util.function.Supplier;
@@ -44,7 +43,6 @@ public class HivePlanOptimizerProvider
             StandardFunctionResolution functionResolution,
             HivePartitionManager partitionManager,
             FunctionMetadataManager functionMetadataManager,
-            TypeManager typeManager,
             FilterStatsCalculatorService filterCalculatorService,
             Supplier<TransactionalMetadata> metadataFactory)
     {
@@ -53,7 +51,6 @@ public class HivePlanOptimizerProvider
         requireNonNull(functionResolution, "functionResolution is null");
         requireNonNull(partitionManager, "partitionManager is null");
         requireNonNull(functionMetadataManager, "functionMetadataManager is null");
-        requireNonNull(typeManager, "typeManager is null");
         this.planOptimizers = ImmutableSet.of(
                 new HiveFilterPushdown(transactionManager, rowExpressionService, functionResolution, partitionManager, filterCalculatorService, functionMetadataManager),
                 new HivePartialAggregationPushdown(transactionManager, functionMetadataManager, functionResolution, metadataFactory),

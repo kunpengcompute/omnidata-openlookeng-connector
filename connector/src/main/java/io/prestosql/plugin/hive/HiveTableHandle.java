@@ -25,6 +25,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -105,7 +106,7 @@ public class HiveTableHandle
                 bucketHandle,
                 Optional.empty(),
                 Optional.empty(),
-                null,
+                Collections.emptyMap(),
                 Optional.empty(),
                 false,
                 new HiveOffloadExpression());

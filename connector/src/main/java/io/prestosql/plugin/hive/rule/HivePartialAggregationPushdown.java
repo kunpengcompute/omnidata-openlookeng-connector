@@ -229,7 +229,8 @@ public class HivePartialAggregationPushdown
                 aggregationsBuilder.put(entry.getKey().getName(), function);
             }
             List<RowExpression> groupingKeys = partialAggregationNode.getGroupingKeys().stream()
-                    .map(entry -> replaceExpression(new VariableReferenceExpression(entry.getName(), types.get(entry.getName())), symbolToColumnMapping)).collect(Collectors.toList());
+                    .map(entry -> replaceExpression(new VariableReferenceExpression(entry.getName(),
+                            types.get(entry.getName())), symbolToColumnMapping)).collect(toImmutableList());
             AggregationInfo aggregationInfo = new AggregationInfo(aggregationsBuilder.build(), groupingKeys);
             return Optional.of(aggregationInfo);
         }

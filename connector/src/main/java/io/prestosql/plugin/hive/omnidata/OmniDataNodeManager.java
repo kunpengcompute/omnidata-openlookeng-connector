@@ -64,6 +64,7 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 public class OmniDataNodeManager
 {
     private static final Logger log = Logger.get(OmniDataNodeManager.class);
+    public static final String CONFIG_PROPERTY = "config";
 
     @GuardedBy("this")
     private Map<String, OmniDataNodeStatus> allNodes = new ConcurrentHashMap<>();
@@ -78,7 +79,7 @@ public class OmniDataNodeManager
     @Inject
     public OmniDataNodeManager()
     {
-        String configFile = System.getProperty("config");
+        String configFile = System.getProperty(CONFIG_PROPERTY);
         Map<String, String> properties = null;
         try {
             properties = loadPropertiesFrom(configFile);

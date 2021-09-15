@@ -87,9 +87,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_CLIENT_TARGET_LIST;
-import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_SSL_ENABLED;
 import static com.huawei.boostkit.omnidata.OmniDataProperty.HOSTADDRESS_DELIMITER;
-import static com.huawei.boostkit.omnidata.OmniDataProperty.PKI_DIR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOADED;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
@@ -98,6 +96,7 @@ import static io.prestosql.plugin.hive.HiveUtil.isPartitionFiltered;
 import static io.prestosql.plugin.hive.coercions.HiveCoercer.createCoercer;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.META_PARTITION_COLUMNS;
 import static io.prestosql.plugin.hive.util.PageSourceUtil.buildPushdownContext;
+import static io.prestosql.plugin.hive.util.PageSourceUtil.getSslConfiguredProperties;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -116,8 +115,7 @@ public class HivePageSourceProvider
     private final IndexCache indexCache;
     private final Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories;
     private final OmniDataNodeManager omniDataNodeManager;
-    private final boolean omniDataSslEnabled;
-    private final String omniDataPkiDir;
+    private final ImmutableMap sslPropertyMap;
 
     @Inject
     public HivePageSourceProvider(
@@ -139,9 +137,7 @@ public class HivePageSourceProvider
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.indexCache = indexCache;
         this.selectivePageSourceFactories = selectivePageSourceFactories;
-
-        this.omniDataSslEnabled = hiveConfig.isOmniDataSslEnabled();
-        this.omniDataPkiDir = hiveConfig.getOmniDataPkiDir();
+        this.sslPropertyMap = getSslConfiguredProperties(hiveConfig);
     }
 
     public HivePageSourceProvider(
@@ -162,8 +158,7 @@ public class HivePageSourceProvider
         this.indexCache = indexCache;
         this.selectivePageSourceFactories = selectivePageSourceFactories;
         this.omniDataNodeManager = null;
-        this.omniDataSslEnabled = hiveConfig.isOmniDataSslEnabled();
-        this.omniDataPkiDir = hiveConfig.getOmniDataPkiDir();
+        this.sslPropertyMap = getSslConfiguredProperties(hiveConfig);
     }
 
     @Override
@@ -367,8 +362,7 @@ public class HivePageSourceProvider
                 missingColumns,
                 omniDataAddress,
                 hiveTable.getOffloadExpression(),
-                omniDataSslEnabled,
-                omniDataPkiDir);
+                sslPropertyMap);
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -537,8 +531,7 @@ public class HivePageSourceProvider
             List<String> missingColumns,
             Optional<String> omniDataAddress,
             HiveOffloadExpression expression,
-            boolean isOmniDataSslEnabled,
-            String omniDataPkiDir)
+            ImmutableMap sslPropertyMap)
     {
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 partitionKeys,
@@ -599,8 +592,7 @@ public class HivePageSourceProvider
                     predicate,
                     omniDataAddress.get(),
                     schema,
-                    isOmniDataSslEnabled,
-                    omniDataPkiDir);
+                    sslPropertyMap);
             return Optional.of(
                     new HivePageSource(
                             columnMappings,
@@ -675,16 +667,12 @@ public class HivePageSourceProvider
             Predicate predicate,
             String omniDataServerTarget,
             Properties schema,
-            boolean isOmniDataSslEnabled,
-            String omniDataPkiDir)
+            ImmutableMap sslPropertyMap)
     {
         AggregatedMemoryContext systemMemoryUsage = AggregatedMemoryContext.newSimpleAggregatedMemoryContext();
         Properties transProperties = new Properties();
         transProperties.put(GRPC_CLIENT_TARGET_LIST, omniDataServerTarget);
-        transProperties.put(GRPC_SSL_ENABLED, String.valueOf(isOmniDataSslEnabled));
-        if (isOmniDataSslEnabled) {
-            transProperties.put(PKI_DIR, omniDataPkiDir);
-        }
+        transProperties.putAll(sslPropertyMap);
 
         DataSource pushDownDataSource = new HdfsRecordDataSource(path.toString(), start, length, fileSize, schema);
 
