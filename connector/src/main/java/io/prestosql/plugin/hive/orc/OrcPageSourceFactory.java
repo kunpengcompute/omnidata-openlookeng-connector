@@ -46,6 +46,7 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveOffloadExpression;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.HiveUtil;
@@ -83,6 +84,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
@@ -183,6 +185,8 @@ public class OrcPageSourceFactory
             SplitMetadata splitMetadata,
             boolean splitCacheable,
             long dataSourceLastModifiedTime,
+            List<HivePartitionKey> partitionKeys,
+            OptionalInt bucketNumber,
             Optional<String> omniDataAddress,
             HiveOffloadExpression expression)
     {
@@ -206,7 +210,8 @@ public class OrcPageSourceFactory
         if (HiveSessionProperties.isOmniDataEnabled(session)
                 && omniDataAddress.isPresent()
                 && expression.isPresent()) {
-            Predicate predicate = buildPushdownContext(columns, expression, typeManager, effectivePredicate);
+            Predicate predicate = buildPushdownContext(columns, expression, typeManager,
+                    effectivePredicate, partitionKeys, bucketNumber, path);
             return Optional.of(createOrcPushDownPageSource(path, start, length, predicate, stats));
         }
 

@@ -18,11 +18,13 @@ import com.google.common.collect.ImmutableSet;
 import com.huawei.boostkit.omnidata.expression.OmniExpressionChecker;
 import io.prestosql.expressions.DefaultRowExpressionTraversalVisitor;
 import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveTableHandle;
 import io.prestosql.plugin.hive.omnidata.OmniDataNodeManager;
 import io.prestosql.plugin.hive.omnidata.OmniDataNodeStatus;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.plan.Symbol;
 import io.prestosql.spi.plan.TableScanNode;
 import io.prestosql.spi.relation.RowExpression;
@@ -34,7 +36,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOADED;
+import static io.prestosql.plugin.hive.HiveTableProperties.getHiveStorageFormat;
 
 public class HivePushdownUtil
 {
@@ -117,6 +122,47 @@ public class HivePushdownUtil
                 return false;
             }
         }
+        return true;
+    }
+
+    public static boolean checkStorageFormat(ConnectorTableMetadata metadata)
+    {
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(metadata.getProperties());
+        if (hiveStorageFormat == null) {
+            return false;
+        }
+        if (hiveStorageFormat != HiveStorageFormat.ORC && hiveStorageFormat != HiveStorageFormat.PARQUET
+                && hiveStorageFormat != HiveStorageFormat.CSV && hiveStorageFormat != HiveStorageFormat.TEXTFILE) {
+            return false;
+        }
+        return true;
+    }
+
+    public static boolean checkTableCanOffload(TableScanNode tableScanNode, ConnectorTableMetadata metadata)
+    {
+        // if there are filter conditions added by other optimizers, then return false
+        if (tableScanNode.getPredicate().isPresent() && !tableScanNode.getPredicate().get().equals(TRUE_CONSTANT)) {
+            return false;
+        }
+        if (!tableScanNode.getEnforcedConstraint().isAll() && !tableScanNode.getEnforcedConstraint().isNone()) {
+            return false;
+        }
+        checkArgument(tableScanNode.getTable().getConnectorHandle() instanceof HiveTableHandle);
+        HiveTableHandle tableHandle = (HiveTableHandle) tableScanNode.getTable().getConnectorHandle();
+        if (!tableHandle.getPredicateColumns().isEmpty() || tableHandle.getDisjunctCompactEffectivePredicate().isPresent()) {
+            return false;
+        }
+        if (!tableHandle.getEnforcedConstraint().isNone() && !tableHandle.getEnforcedConstraint().isAll()) {
+            return false;
+        }
+        if (!tableHandle.getCompactEffectivePredicate().isNone() && !tableHandle.getCompactEffectivePredicate().isAll()) {
+            return false;
+        }
+
+        if (true != checkStorageFormat(metadata)) {
+            return false;
+        }
+
         return true;
     }
 }

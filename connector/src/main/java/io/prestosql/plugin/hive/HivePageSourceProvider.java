@@ -565,6 +565,8 @@ public class HivePageSourceProvider
                     splitMetadata,
                     splitCacheable,
                     dataSourceLastModifiedTime,
+                    partitionKeys,
+                    bucketNumber,
                     omniDataAddress,
                     expression);
             if (pageSource.isPresent()) {
@@ -584,7 +586,8 @@ public class HivePageSourceProvider
         if (HiveSessionProperties.isOmniDataEnabled(session) && expression.isPresent()) {
             checkArgument(omniDataAddress.isPresent(), "omniDataAddress is empty");
 
-            Predicate predicate = buildPushdownContext(hiveColumns, expression, typeManager, effectivePredicate);
+            Predicate predicate = buildPushdownContext(hiveColumns, expression, typeManager,
+                    effectivePredicate, partitionKeys, bucketNumber, path);
             ConnectorPageSource pageSource = createPushDownPageSource(path,
                     start,
                     length,

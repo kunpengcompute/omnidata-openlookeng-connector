@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.Path;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 
 public interface HivePageSourceFactory
@@ -63,6 +64,8 @@ public interface HivePageSourceFactory
             SplitMetadata splitMetadata,
             boolean splitCacheable,
             long dataSourceLastModifiedTime,
+            List<HivePartitionKey> partitionKeys,
+            OptionalInt bucketNumber,
             Optional<String> omniDataAddress,
             HiveOffloadExpression offloadExpression)
     {

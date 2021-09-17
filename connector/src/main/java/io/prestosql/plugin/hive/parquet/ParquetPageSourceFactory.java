@@ -36,6 +36,7 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveOffloadExpression;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -68,6 +69,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 
@@ -142,6 +144,8 @@ public class ParquetPageSourceFactory
             SplitMetadata splitMetadata,
             boolean splitCacheable,
             long dataSourceLastModifiedTime,
+            List<HivePartitionKey> partitionKeys,
+            OptionalInt bucketNumber,
             Optional<String> omniDataAddress,
             HiveOffloadExpression offloadExpression)
     {
@@ -160,7 +164,8 @@ public class ParquetPageSourceFactory
                 && omniDataAddress.isPresent()
                 && offloadExpression.isPresent()) {
             com.huawei.boostkit.omnidata.model.Predicate predicate =
-                    buildPushdownContext(columns, offloadExpression, typeManager, effectivePredicate);
+                    buildPushdownContext(columns, offloadExpression, typeManager,
+                            effectivePredicate, partitionKeys, bucketNumber, path);
             return Optional.of(createParquetPushDownPageSource(
                     path,
                     start,
