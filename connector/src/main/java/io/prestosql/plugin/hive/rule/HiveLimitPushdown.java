@@ -15,13 +15,16 @@
 package io.prestosql.plugin.hive.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
+import io.prestosql.plugin.hive.HiveMetadata;
 import io.prestosql.plugin.hive.HiveOffloadExpression;
 import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.HiveTableHandle;
+import io.prestosql.plugin.hive.HiveTransactionManager;
 import io.prestosql.spi.ConnectorPlanOptimizer;
 import io.prestosql.spi.SymbolAllocator;
+import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.metadata.TableHandle;
 import io.prestosql.spi.plan.LimitNode;
 import io.prestosql.spi.plan.PlanNode;
@@ -35,11 +38,17 @@ import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.rule.HivePushdownUtil.isColumnsCanOffload;
+import static java.util.Objects.requireNonNull;
 
 public class HiveLimitPushdown
         implements ConnectorPlanOptimizer
 {
-    private static final Logger Log = Logger.get(HiveLimitPushdown.class);
+    private final HiveTransactionManager transactionManager;
+
+    public HiveLimitPushdown(HiveTransactionManager transactionManager)
+    {
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+    }
 
     @Override
     public PlanNode optimize(
@@ -52,16 +61,18 @@ public class HiveLimitPushdown
         if (!HiveSessionProperties.isOmniDataEnabled(session)) {
             return maxSubPlan;
         }
-        return maxSubPlan.accept(new Visitor(types), null);
+        return maxSubPlan.accept(new Visitor(types, session), null);
     }
 
     private class Visitor
             extends PlanVisitor<PlanNode, Void>
     {
         private final Map<String, Type> types;
+        private final ConnectorSession session;
 
-        public Visitor(Map<String, Type> types)
+        public Visitor(Map<String, Type> types, ConnectorSession session)
         {
+            this.session = session;
             this.types = types;
         }
 
@@ -93,6 +104,15 @@ public class HiveLimitPushdown
             checkArgument(limitNode.getCount() >= 0, "limit must be at least zero");
             TableScanNode tableScan = (TableScanNode) limitNode.getSource();
             TableHandle tableHandle = tableScan.getTable();
+
+            ConnectorMetadata connectorMetadata = transactionManager.get(tableHandle.getTransaction());
+            if (!(connectorMetadata instanceof HiveMetadata)) {
+                return visitPlan(limitNode, context);
+            }
+            ConnectorTableMetadata metadata = connectorMetadata.getTableMetadata(session, tableHandle.getConnectorHandle());
+            if (true != HivePushdownUtil.checkTableCanOffload(tableScan, metadata)) {
+                return visitPlan(limitNode, context);
+            }
 
             if (!HivePushdownUtil.isOmniDataNodesNormal() || !isColumnsCanOffload(tableHandle.getConnectorHandle(), tableScan.getOutputSymbols(), types)) {
                 return visitPlan(limitNode, context);

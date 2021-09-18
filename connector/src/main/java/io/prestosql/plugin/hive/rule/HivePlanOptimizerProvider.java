@@ -54,7 +54,7 @@ public class HivePlanOptimizerProvider
         this.planOptimizers = ImmutableSet.of(
                 new HiveFilterPushdown(transactionManager, rowExpressionService, functionResolution, partitionManager, filterCalculatorService, functionMetadataManager),
                 new HivePartialAggregationPushdown(transactionManager, functionMetadataManager, functionResolution, metadataFactory),
-                new HiveLimitPushdown());
+                new HiveLimitPushdown(transactionManager));
     }
 
     @Override

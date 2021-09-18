@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
-import static io.prestosql.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static io.prestosql.expressions.RowExpressionNodeInliner.replaceExpression;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOADED;
 import static io.prestosql.plugin.hive.HiveColumnHandle.DUMMY_OFFLOADED_COLUMN_INDEX;
@@ -55,9 +54,6 @@ public class HiveProjectPushdown
             return Optional.empty();
         }
         TableScanNode tableScanNode = (TableScanNode) plan.getSource();
-        if (tableScanNode.getPredicate().isPresent() && !tableScanNode.getPredicate().get().equals(TRUE_CONSTANT)) {
-            return Optional.empty();
-        }
         ConnectorTableHandle tableHandle = tableScanNode.getTable().getConnectorHandle();
         if (!(tableHandle instanceof HiveTableHandle) ||
                 !(((HiveTableHandle) tableHandle).getOffloadExpression().getProjections().isEmpty())) {

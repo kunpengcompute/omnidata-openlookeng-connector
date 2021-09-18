@@ -26,16 +26,15 @@ import io.prestosql.plugin.hive.HiveMetadata;
 import io.prestosql.plugin.hive.HiveOffloadExpression;
 import io.prestosql.plugin.hive.HivePartitionManager;
 import io.prestosql.plugin.hive.HiveSessionProperties;
-import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveTableHandle;
 import io.prestosql.plugin.hive.HiveTransactionManager;
 import io.prestosql.spi.ConnectorPlanOptimizer;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.SymbolAllocator;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.function.FunctionMetadataManager;
 import io.prestosql.spi.function.StandardFunctionResolution;
@@ -56,6 +55,7 @@ import io.prestosql.spi.relation.DomainTranslator;
 import io.prestosql.spi.relation.RowExpression;
 import io.prestosql.spi.relation.RowExpressionService;
 import io.prestosql.spi.relation.VariableReferenceExpression;
+import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
 
@@ -78,12 +78,8 @@ import static io.prestosql.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static io.prestosql.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static io.prestosql.expressions.LogicalRowExpressions.extractConjuncts;
 import static io.prestosql.expressions.RowExpressionNodeInliner.replaceExpression;
-import static io.prestosql.plugin.hive.HiveTableProperties.getHiveStorageFormat;
+import static io.prestosql.plugin.hive.rule.HivePushdownUtil.checkStorageFormat;
 import static io.prestosql.plugin.hive.rule.HivePushdownUtil.isColumnsCanOffload;
-import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
 import static java.util.Objects.requireNonNull;
 
@@ -256,10 +252,11 @@ public class HiveFilterPushdown
         // TODO: total data size
         TableStatistics statistics = metadata.getTableStatistics(session, tableHandle, constraint, true);
         if (statistics.getRowCount().isUnknown() || statistics.getRowCount().getValue() < HiveSessionProperties.getMinOffloadRowNumber(session)) {
-            log.info("Filter:Table %s row number[%d], expect min row number[%d].",
+            log.info("Filter:Table %s row number[%d], expect min row number[%d], predicate[%s].",
                     tableHandle.getTableName(),
                     (long) statistics.getRowCount().getValue(),
-                    HiveSessionProperties.getMinOffloadRowNumber(session));
+                    HiveSessionProperties.getMinOffloadRowNumber(session),
+                    predicate.toString());
             return false;
         }
 
@@ -270,15 +267,18 @@ public class HiveFilterPushdown
                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), entry -> entry.getValue()));
         TableStatistics filterStatistics = filterCalculatorService.filterStats(statistics, predicate, session,
                 allColumns, allColumnTypes, symbolsMap, formSymbolsLayout(allColumns));
-        if (filterStatistics.getRowCount().isUnknown()) {
-            return false;
-        }
-        double filterFactor = filterStatistics.getRowCount().getValue() / statistics.getRowCount().getValue();
+        Estimate filteredRowCount = filterStatistics.getRowCount().isUnknown() ? statistics.getRowCount() : filterStatistics.getRowCount();
+        double filterFactor = filteredRowCount.getValue() / statistics.getRowCount().getValue();
         if (filterFactor <= HiveSessionProperties.getMinFilterOffloadFactor(session)) {
             log.info("Offloading: table %s, size[%d], predicate[%s], filter factor[%.2f%%].",
                     tableHandle.getTableName(), (long) statistics.getRowCount().getValue(),
                     predicate.toString(), filterFactor * 100);
             return true;
+        }
+        else {
+            log.info("No need to offload: table %s, size[%d], predicate[%s], filter factor[%.2f%%].",
+                    tableHandle.getTableName(), (long) statistics.getRowCount().getValue(),
+                    predicate.toString(), filterFactor * 100);
         }
         return false;
     }
@@ -461,20 +461,6 @@ public class HiveFilterPushdown
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
             return !Boolean.FALSE.equals(expression) && expression != null && (!(expression instanceof ConstantExpression) || !((ConstantExpression) expression).isNull());
         }
-
-        private static void propagateIfUnhandled(PrestoException e)
-                throws PrestoException
-        {
-            int errorCode = e.getErrorCode().getCode();
-            if (errorCode == DIVISION_BY_ZERO.toErrorCode().getCode()
-                    || errorCode == INVALID_CAST_ARGUMENT.toErrorCode().getCode()
-                    || errorCode == INVALID_FUNCTION_ARGUMENT.toErrorCode().getCode()
-                    || errorCode == NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode().getCode()) {
-                return;
-            }
-
-            throw e;
-        }
     }
 
     private HiveMetadata getMetadata(TableHandle tableHandle)
@@ -486,10 +472,8 @@ public class HiveFilterPushdown
 
     protected boolean isOperatorOffloadSupported(ConnectorSession session, TableHandle tableHandle)
     {
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(
-                getMetadata(tableHandle).getTableMetadata(session, tableHandle.getConnectorHandle()).getProperties());
-        return hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.PARQUET
-            || hiveStorageFormat == HiveStorageFormat.CSV || hiveStorageFormat == HiveStorageFormat.TEXTFILE;
+        ConnectorTableMetadata metadata = getMetadata(tableHandle).getTableMetadata(session, tableHandle.getConnectorHandle());
+        return checkStorageFormat(metadata);
     }
 
     public static class ExpressionExtractResult

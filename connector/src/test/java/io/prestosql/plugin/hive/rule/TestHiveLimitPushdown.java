@@ -27,6 +27,7 @@ import static io.prestosql.plugin.hive.rule.TestHivePushdownUtil.SYMBOL_ALLOCATO
 import static io.prestosql.plugin.hive.rule.TestHivePushdownUtil.buildPartialLimitNode;
 import static io.prestosql.plugin.hive.rule.TestHivePushdownUtil.buildTableScanNode;
 import static io.prestosql.plugin.hive.rule.TestHivePushdownUtil.matchLimitOffload;
+import static io.prestosql.plugin.hive.rule.TestHivePushdownUtil.simulationHiveTransactionManager;
 
 public class TestHiveLimitPushdown
         extends TestHivePushdown
@@ -35,7 +36,7 @@ public class TestHiveLimitPushdown
     public void testLimitPushdown()
     {
         int count = 5;
-        HiveLimitPushdown optimizer = new HiveLimitPushdown();
+        HiveLimitPushdown optimizer = new HiveLimitPushdown(simulationHiveTransactionManager());
         TableScanNode tableScanNode = buildTableScanNode();
         LimitNode limitNode = buildPartialLimitNode(tableScanNode, count);
         PlanNode node = optimizer.optimize(limitNode, OFFLOAD_SESSION, COLUMN_TYPE_MAP, SYMBOL_ALLOCATOR, ID_ALLOCATOR);

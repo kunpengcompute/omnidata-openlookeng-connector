@@ -22,6 +22,8 @@ import com.huawei.boostkit.omnidata.model.Predicate;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveOffloadExpression;
+import io.prestosql.plugin.hive.HivePartitionKey;
+import io.prestosql.plugin.hive.HiveUtil;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.plan.Symbol;
 import io.prestosql.spi.predicate.Domain;
@@ -33,6 +35,7 @@ import io.prestosql.spi.relation.VariableReferenceExpression;
 import io.prestosql.spi.relation.VariableToChannelTranslator;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,10 +44,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_CLIENT_CERT_PATH;
 import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_CLIENT_PRIVATE_KEY_PATH;
 import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_CRL_PATH;
@@ -53,6 +58,7 @@ import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_TRUST_CA_PATH;
 import static com.huawei.boostkit.omnidata.OmniDataProperty.PKI_DIR;
 import static io.prestosql.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOADED;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.DUMMY_OFFLOADED_COLUMN_INDEX;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -155,10 +161,30 @@ public class PageSourceUtil
         return Optional.of(new AggregationInfo(functionBuilder.build(), referenceBuilder.build()));
     }
 
+    private static Column buildColumn(HiveColumnHandle columnHandle,
+                                      TypeManager typeManager,
+                                      List<HivePartitionKey> partitionKeys,
+                                      OptionalInt bucketNumber,
+                                      Path path)
+    {
+        Type columnType = typeManager.getType(columnHandle.getTypeSignature());
+        if (!columnHandle.getColumnType().equals(PARTITION_KEY)) {
+            return new Column(columnHandle.getHiveColumnIndex(), columnHandle.getColumnName(), columnType);
+        }
+
+        Map<String, HivePartitionKey> partitionKeysMap = uniqueIndex(partitionKeys, HivePartitionKey::getName);
+        String prefilledValue = HiveUtil.getPrefilledColumnValue(columnHandle, partitionKeysMap.get(columnHandle.getName()), path, bucketNumber);
+        Object columnValue = HiveUtil.typedPartitionKey(prefilledValue, columnType, prefilledValue);
+        return new Column(columnHandle.getHiveColumnIndex(), columnHandle.getColumnName(), columnType, true, columnValue);
+    }
+
     public static Predicate buildPushdownContext(List<HiveColumnHandle> columns,
-            HiveOffloadExpression expression,
-            TypeManager typeManager,
-            TupleDomain<HiveColumnHandle> effectivePredicate)
+                                                 HiveOffloadExpression expression,
+                                                 TypeManager typeManager,
+                                                 TupleDomain<HiveColumnHandle> effectivePredicate,
+                                                 List<HivePartitionKey> partitionKeys,
+                                                 OptionalInt bucketNumber,
+                                                 Path path)
     {
         // Translate variable reference to input reference because PageFunctionCompiler can only support input reference.
         List<HiveColumnHandle> datasourceColumns = combineDatasourceColumns(columns, expression);
@@ -172,10 +198,12 @@ public class PageSourceUtil
         List<Column> pushDownColumns = new ArrayList<>();
         datasourceColumns.forEach(
                 column -> {
-                    pushDownColumns.add(new Column(
-                            column.getHiveColumnIndex(),
-                            column.getColumnName(),
-                            typeManager.getType(column.getTypeSignature())));
+                    pushDownColumns.add(buildColumn(
+                            column,
+                            typeManager,
+                            partitionKeys,
+                            bucketNumber,
+                            path));
                 });
 
         Map<String, Domain> domains = effectivePredicate.getDomains().get().entrySet()

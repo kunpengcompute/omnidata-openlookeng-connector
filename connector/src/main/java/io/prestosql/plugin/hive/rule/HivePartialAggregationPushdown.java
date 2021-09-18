@@ -22,7 +22,6 @@ import io.airlift.log.Logger;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveOffloadExpression;
 import io.prestosql.plugin.hive.HiveSessionProperties;
-import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveTableHandle;
 import io.prestosql.plugin.hive.HiveTableProperties;
 import io.prestosql.plugin.hive.HiveTransactionManager;
@@ -68,13 +67,11 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static io.prestosql.expressions.RowExpressionNodeInliner.replaceExpression;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOADED;
 import static io.prestosql.plugin.hive.HiveColumnHandle.DUMMY_OFFLOADED_COLUMN_INDEX;
 import static io.prestosql.plugin.hive.HiveColumnHandle.DUMMY_OFFLOADED_COLUMN_NAME;
-import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
-import static io.prestosql.plugin.hive.HiveStorageFormat.PARQUET;
+import static io.prestosql.plugin.hive.rule.HivePushdownUtil.checkTableCanOffload;
 import static io.prestosql.plugin.hive.rule.HivePushdownUtil.getDataSourceColumns;
 import static io.prestosql.plugin.hive.rule.HivePushdownUtil.isColumnsCanOffload;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
@@ -193,19 +190,13 @@ public class HivePartialAggregationPushdown
                 return false;
             }
 
-            final HiveStorageFormat hiveStorageFormat = HiveStorageFormat.valueOf(rawFormat.get().toString());
-            if (hiveStorageFormat != ORC && hiveStorageFormat != PARQUET) {
+            if (true != checkTableCanOffload(tableScanNode, connectorTableMetadata)) {
                 return false;
             }
 
             TableHandle tableHandle = tableScanNode.getTable();
             checkArgument(tableHandle.getConnectorHandle() instanceof HiveTableHandle, "Only supports hive TableHandle");
             HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle.getConnectorHandle();
-            if ((tableScanNode.getPredicate().isPresent() && !tableScanNode.getPredicate().get().equals(TRUE_CONSTANT))
-                    || !hiveTableHandle.getPredicateColumns().isEmpty()) {
-                return false;
-            }
-
             if (!isColumnsCanOffload(hiveTableHandle, tableScanNode.getOutputSymbols(), types)) {
                 return false;
             }
