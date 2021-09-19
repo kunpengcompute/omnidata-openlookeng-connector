@@ -38,7 +38,6 @@ import io.airlift.units.Duration;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.PrestoException;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -52,6 +51,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -75,6 +75,7 @@ public class OmniDataNodeManager
     private HttpClientConfig httpClientConfig;
     private DiscoveryClientConfig discoveryClientConfig;
     private final boolean httpsRequired;
+    private AtomicBoolean started = new AtomicBoolean(false);
 
     @Inject
     public OmniDataNodeManager()
@@ -98,9 +99,12 @@ public class OmniDataNodeManager
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("omnidata-node-state-poller-%s"));
     }
 
-    @PostConstruct
     public void startPollingNodeStates()
     {
+        if (started.getAndSet(true)) {
+            return;
+        }
+
         nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
             try {
                 refreshNodes();
@@ -108,13 +112,16 @@ public class OmniDataNodeManager
             catch (Exception e) {
                 log.error(e, "Error polling state of omnidata nodes");
             }
-        }, 5, 5, TimeUnit.SECONDS);
-        refreshNodes();
+        }, 10, 5, TimeUnit.SECONDS);
     }
 
     @PreDestroy
     public void stop()
     {
+        if (!started.get()) {
+            return;
+        }
+
         nodeStateUpdateExecutor.shutdownNow();
     }
 
