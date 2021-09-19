@@ -148,7 +148,9 @@ public class HiveConnectorFactory
             ConnectorAccessControl accessControl = new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class));
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
             ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
-            HivePushdownUtil.setOmniDataNodeManager(injector.getInstance(OmniDataNodeManager.class));
+            OmniDataNodeManager nodeManagerInstance = injector.getInstance(OmniDataNodeManager.class);
+            HivePushdownUtil.setOmniDataNodeManager(nodeManagerInstance);
+            nodeManagerInstance.startPollingNodeStates();
 
             return new HiveConnector(
                     lifeCycleManager,
