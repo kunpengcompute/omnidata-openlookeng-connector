@@ -42,9 +42,11 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.text.Normalizer;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -74,19 +76,45 @@ public class OmniDataNodeManager
     private KerberosConfig kerberosConfig;
     private HttpClientConfig httpClientConfig;
     private DiscoveryClientConfig discoveryClientConfig;
-    private final boolean httpsRequired;
+    private boolean httpsRequired;
     private AtomicBoolean started = new AtomicBoolean(false);
 
     @Inject
     public OmniDataNodeManager()
     {
-        String configFile = System.getProperty(CONFIG_PROPERTY);
-        Map<String, String> properties = null;
+        this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("omnidata-node-state-poller-%s"));
+    }
+
+    private boolean initializeConfiguration()
+    {
+        String configFilePath = System.getProperty(CONFIG_PROPERTY);
+        if (configFilePath == null || configFilePath.isEmpty()) {
+            log.error("System property %s does not exist.", CONFIG_PROPERTY);
+            return false;
+        }
+
+        String filePath;
         try {
-            properties = loadPropertiesFrom(configFile);
+            String normalizePath = Normalizer.normalize(configFilePath, Normalizer.Form.NFKC);
+            filePath = new File(normalizePath).getCanonicalPath();
+        }
+        catch (IOException | IllegalArgumentException exception) {
+            log.error("config file path [%s] is invalid, exception %s", configFilePath, exception.getMessage());
+            return false;
+        }
+        File file = new File(filePath);
+        if (!file.exists()) {
+            log.error("config file [%s] does not exist.", filePath);
+            return false;
+        }
+
+        Map<String, String> properties;
+        try {
+            properties = loadPropertiesFrom(configFilePath);
         }
         catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failure of Loading config file, Check your configuration.");
+            log.error("Fail to load config file, Check your configuration.");
+            return false;
         }
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
@@ -95,8 +123,7 @@ public class OmniDataNodeManager
         this.discoveryClientConfig = configurationFactory.build(DiscoveryClientConfig.class);
         CommunicationConfig communicationConfig = configurationFactory.build(CommunicationConfig.class);
         this.httpsRequired = communicationConfig.isHttpsRequired();
-
-        this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("omnidata-node-state-poller-%s"));
+        return true;
     }
 
     public void startPollingNodeStates()
@@ -105,6 +132,9 @@ public class OmniDataNodeManager
             return;
         }
 
+        if (!initializeConfiguration()) {
+            return;
+        }
         nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
             try {
                 refreshNodes();

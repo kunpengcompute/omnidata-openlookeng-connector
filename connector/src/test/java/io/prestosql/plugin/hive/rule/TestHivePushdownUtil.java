@@ -290,7 +290,7 @@ public class TestHivePushdownUtil
                 new HiveSessionProperties(hiveConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
     }
 
-    protected static void simulationOmniDataConfig()
+    public static void simulationOmniDataConfig()
     {
         String configFile = System.getProperty(CONFIG_PROPERTY);
         if (configFile != null) {
@@ -308,7 +308,7 @@ public class TestHivePushdownUtil
         System.setProperty(CONFIG_PROPERTY, SIMULATION_FLIE_NAME);
     }
 
-    protected static void unsimulationOmniDataConfig()
+    public static void unsimulationOmniDataConfig()
     {
         String configFile = System.getProperty(CONFIG_PROPERTY);
         if (configFile == null) {

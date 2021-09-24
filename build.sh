@@ -5,5 +5,5 @@
 set -e
 
 cpu_name=$(lscpu | grep Architecture | awk '{print $2}')
-mvn -T12 clean install -Dos.detected.arch="${cpu_name}" -DskipTests
+mvn -T12 clean install -Dos.detected.arch="${cpu_name}" 
 

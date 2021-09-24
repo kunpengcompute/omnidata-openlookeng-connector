@@ -209,8 +209,8 @@ public class HivePageSourceProvider
         }
 
         StringJoiner hostAddressJoiner = new StringJoiner(HOSTADDRESS_DELIMITER);
-        int copyNumber = hiveSplit.getAddresses().size();
-        int seed = (int) (hiveSplit.getStart() % copyNumber);
+        int copyNumber = Math.max(1, hiveSplit.getAddresses().size());
+        int seed = (int) ((hiveSplit.getStart() / Math.max(1, hiveSplit.getLength()) + hiveSplit.getFileSize()) % copyNumber);
         int counter = 0;
         for (int i = 0; i < hiveSplit.getAddresses().size(); i++) {
             int copyIndex = (i + seed) % copyNumber;
