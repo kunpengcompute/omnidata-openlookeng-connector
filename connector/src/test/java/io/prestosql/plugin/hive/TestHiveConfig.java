@@ -160,6 +160,10 @@ public class TestHiveConfig
                 .setOmniDataEnabled(false)
                 .setOmniDataSslPkiDir("")
                 .setOmniDataSslEnabled(false)
+                .setOmniDataSslClientCertFilePath("")
+                .setOmniDataSslCrlFilePath("")
+                .setOmniDataSslPrivateKeyFilePath("")
+                .setOmniDataSslTrustCertFilePath("")
                 .setMetastoreWriteBatchSize(8));
     }
 
@@ -297,7 +301,11 @@ public class TestHiveConfig
                 .put("hive.min-offload-row-number", "100")
                 .put("hive.omnidata-enabled", "true")
                 .put("omni-data.ssl.enabled", "true")
-                .put("omni-data.ssl.pki.dir", "/home/omnidata/pki")
+                .put("omni-data.ssl.pki.dir", "./")
+                .put("omni-data.ssl.client.cert.file.path", "./")
+                .put("omni-data.ssl.crl.file.path", "./")
+                .put("omni-data.ssl.private.key.file.path", "./")
+                .put("omni-data.ssl.trust.cert.file.path", "./")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -422,7 +430,11 @@ public class TestHiveConfig
                 .setMinAggregatorOffloadFactor(0.2)
                 .setMinOffloadRowNumber(100)
                 .setOmniDataSslEnabled(true)
-                .setOmniDataSslPkiDir("/home/omnidata/pki");
+                .setOmniDataSslPkiDir("./")
+                .setOmniDataSslClientCertFilePath("./")
+                .setOmniDataSslCrlFilePath("./")
+                .setOmniDataSslTrustCertFilePath("./")
+                .setOmniDataSslPrivateKeyFilePath("./");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
