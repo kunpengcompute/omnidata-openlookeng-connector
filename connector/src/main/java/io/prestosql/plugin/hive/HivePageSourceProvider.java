@@ -30,6 +30,7 @@ import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.plugin.hive.HiveBucketing.BucketingVersion;
 import io.prestosql.plugin.hive.coercions.HiveCoercer;
 import io.prestosql.plugin.hive.omnidata.OmniDataNodeManager;
+import io.prestosql.plugin.hive.omnidata.OmniDataNodeStatus;
 import io.prestosql.plugin.hive.orc.OrcConcatPageSource;
 import io.prestosql.plugin.hive.util.IndexCache;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -111,6 +112,7 @@ public class HivePageSourceProvider
 
     private final Set<HivePageSourceFactory> pageSourceFactories;
 
+    private static final int DEFAULT_SPLIT_NUM = 3;
     private static final String HIVE_DEFAULT_PARTITION_VALUE = "\\N";
     private final IndexCache indexCache;
     private final Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories;
@@ -196,16 +198,32 @@ public class HivePageSourceProvider
         return new OrcConcatPageSource(pageSources);
     }
 
+    private Optional<String> getSplitOmniDataAddrRandomly(HiveSplit hiveSplit)
+    {
+        List<OmniDataNodeStatus> omniDataNodeList = omniDataNodeManager.getAllNodes().values().stream().collect(toList());
+        if (omniDataNodeList.isEmpty()) {
+            return Optional.empty();
+        }
+
+        int nodeNum = omniDataNodeList.size();
+        int seed = (int) ((hiveSplit.getStart() / Math.max(1, hiveSplit.getLength()) + hiveSplit.getFileSize() + hiveSplit.getPath().hashCode()) % nodeNum);
+        StringJoiner addressJoiner = new StringJoiner(HOSTADDRESS_DELIMITER);
+        for (int i = 0; i < nodeNum && i < DEFAULT_SPLIT_NUM; i++) {
+            int index = Math.abs(seed + i) % nodeNum;
+            addressJoiner.add(omniDataNodeList.get(index).getHostAddress());
+        }
+        return Optional.of(addressJoiner.toString());
+    }
+
     private Optional<String> getSplitOmniDataAddr(HiveOffloadExpression expression, HiveSplit hiveSplit)
     {
         if (!expression.isPresent()) {
             return Optional.empty();
         }
 
-        // empty split
+        // for empty or ceph split
         if (hiveSplit.getAddresses().size() == 0) {
-            return omniDataNodeManager.getAllNodes().isEmpty() ? Optional.empty() :
-                    Optional.of(omniDataNodeManager.getAllNodes().values().stream().findAny().get().getHostAddress());
+            return getSplitOmniDataAddrRandomly(hiveSplit);
         }
 
         StringJoiner hostAddressJoiner = new StringJoiner(HOSTADDRESS_DELIMITER);
@@ -213,7 +231,7 @@ public class HivePageSourceProvider
         int seed = (int) ((hiveSplit.getStart() / Math.max(1, hiveSplit.getLength()) + hiveSplit.getFileSize()) % copyNumber);
         int counter = 0;
         for (int i = 0; i < hiveSplit.getAddresses().size(); i++) {
-            int copyIndex = (i + seed) % copyNumber;
+            int copyIndex = Math.abs(i + seed) % copyNumber;
             try {
                 String hostIp = InetAddress.getByName(hiveSplit.getAddresses().get(copyIndex).getHostText()).getHostAddress();
                 if (omniDataNodeManager.getAllNodes().containsKey(hostIp)) {
