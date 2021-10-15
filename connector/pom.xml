@@ -4,12 +4,12 @@
 
     <parent>
         <groupId>io.hetu.core</groupId>
-        <artifactId>omnidata-openlookeng-connector-root</artifactId>
-        <version>1.4.0-SNAPSHOT</version>
+        <artifactId>presto-root</artifactId>
+        <version>1.4.0</version>
     </parent>
 
-    <artifactId>omnidata-openlookeng-connector</artifactId>
-    <description>OmniData - openLooKeng Connector</description>
+    <artifactId>openlookeng-omnidata-connector</artifactId>
+    <description>openLooKeng OmniData Connector</description>
     <packaging>hetu-plugin</packaging>
 
     <properties>
@@ -17,7 +17,7 @@
         <dep.grpc.version>1.35.0</dep.grpc.version>
         <dep.guava.version>30.1.1-jre</dep.guava.version>
         <dep.arilift.version>206</dep.arilift.version>
-        <dep.jetty.version>9.4.40.v20210413</dep.jetty.version>
+        <dep.jetty.version>9.4.43.v20210629</dep.jetty.version>
     </properties>
 
     <dependencies>
