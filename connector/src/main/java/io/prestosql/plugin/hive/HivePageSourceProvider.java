@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.huawei.boostkit.omnidata.block.BlockDeserializer;
+import com.huawei.boostkit.omnidata.decode.impl.OpenLooKengDeserializer;
 import com.huawei.boostkit.omnidata.model.Predicate;
 import com.huawei.boostkit.omnidata.model.TaskSource;
 import com.huawei.boostkit.omnidata.model.datasource.DataSource;
@@ -87,8 +87,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
-import static com.huawei.boostkit.omnidata.OmniDataProperty.GRPC_CLIENT_TARGET_LIST;
-import static com.huawei.boostkit.omnidata.OmniDataProperty.HOSTADDRESS_DELIMITER;
+import static com.huawei.boostkit.omnidata.transfer.OmniDataProperty.HOSTADDRESS_DELIMITER;
+import static com.huawei.boostkit.omnidata.transfer.OmniDataProperty.OMNIDATA_CLIENT_TARGET_LIST;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.DUMMY_OFFLOADED;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
@@ -97,7 +97,6 @@ import static io.prestosql.plugin.hive.HiveUtil.isPartitionFiltered;
 import static io.prestosql.plugin.hive.coercions.HiveCoercer.createCoercer;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.META_PARTITION_COLUMNS;
 import static io.prestosql.plugin.hive.util.PageSourceUtil.buildPushdownContext;
-import static io.prestosql.plugin.hive.util.PageSourceUtil.getSslConfiguredProperties;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -117,7 +116,6 @@ public class HivePageSourceProvider
     private final IndexCache indexCache;
     private final Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories;
     private final OmniDataNodeManager omniDataNodeManager;
-    private final ImmutableMap sslPropertyMap;
 
     @Inject
     public HivePageSourceProvider(
@@ -139,7 +137,6 @@ public class HivePageSourceProvider
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.indexCache = indexCache;
         this.selectivePageSourceFactories = selectivePageSourceFactories;
-        this.sslPropertyMap = getSslConfiguredProperties(hiveConfig);
     }
 
     public HivePageSourceProvider(
@@ -160,7 +157,6 @@ public class HivePageSourceProvider
         this.indexCache = indexCache;
         this.selectivePageSourceFactories = selectivePageSourceFactories;
         this.omniDataNodeManager = null;
-        this.sslPropertyMap = getSslConfiguredProperties(hiveConfig);
     }
 
     @Override
@@ -379,8 +375,7 @@ public class HivePageSourceProvider
                 hiveSplit.getCustomSplitInfo(),
                 missingColumns,
                 omniDataAddress,
-                hiveTable.getOffloadExpression(),
-                sslPropertyMap);
+                hiveTable.getOffloadExpression());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -548,8 +543,7 @@ public class HivePageSourceProvider
             Map<String, String> customSplitInfo,
             List<String> missingColumns,
             Optional<String> omniDataAddress,
-            HiveOffloadExpression expression,
-            ImmutableMap sslPropertyMap)
+            HiveOffloadExpression expression)
     {
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 partitionKeys,
@@ -612,8 +606,7 @@ public class HivePageSourceProvider
                     fileSize,
                     predicate,
                     omniDataAddress.get(),
-                    schema,
-                    sslPropertyMap);
+                    schema);
             return Optional.of(
                     new HivePageSource(
                             columnMappings,
@@ -687,13 +680,11 @@ public class HivePageSourceProvider
             long fileSize,
             Predicate predicate,
             String omniDataServerTarget,
-            Properties schema,
-            ImmutableMap sslPropertyMap)
+            Properties schema)
     {
         AggregatedMemoryContext systemMemoryUsage = AggregatedMemoryContext.newSimpleAggregatedMemoryContext();
         Properties transProperties = new Properties();
-        transProperties.put(GRPC_CLIENT_TARGET_LIST, omniDataServerTarget);
-        transProperties.putAll(sslPropertyMap);
+        transProperties.put(OMNIDATA_CLIENT_TARGET_LIST, omniDataServerTarget);
 
         DataSource pushDownDataSource = new HdfsRecordDataSource(path.toString(), start, length, fileSize, schema);
 
@@ -701,7 +692,7 @@ public class HivePageSourceProvider
                 pushDownDataSource,
                 predicate,
                 TaskSource.ONE_MEGABYTES);
-        DataReader dataReader = DataReaderFactory.create(transProperties, readTaskInfo, new BlockDeserializer());
+        DataReader dataReader = DataReaderFactory.create(transProperties, readTaskInfo, new OpenLooKengDeserializer());
 
         return new HivePushDownRecordPageSource(dataReader, systemMemoryUsage);
     }

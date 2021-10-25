@@ -12,9 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.huawei.boostkit.omnidata.block;
+package com.huawei.boostkit.omnidata.decode.impl;
 
 import com.huawei.boostkit.omnidata.decode.Deserializer;
 
-public class BlockDeserializer implements Deserializer {
+public class OpenLooKengDeserializer implements Deserializer {
 }

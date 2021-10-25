@@ -40,60 +40,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- dependency for omnidata grpc -->
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-api</artifactId>
-            <version>${dep.grpc.version}</version>
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.errorprone</groupId>
-                    <artifactId>error_prone_annotations</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-protobuf</artifactId>
-            <version>${dep.grpc.version}</version>
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.errorprone</groupId>
-                    <artifactId>error_prone_annotations</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-stub</artifactId>
-            <version>${dep.grpc.version}</version>
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.errorprone</groupId>
-                    <artifactId>error_prone_annotations</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-netty-shaded</artifactId>
-            <version>${dep.grpc.version}</version>
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.errorprone</groupId>
-                    <artifactId>error_prone_annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.code.gson</groupId>
-                    <artifactId>gson</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <dependency>
             <groupId>io.hetu.core</groupId>
             <artifactId>presto-plugin-toolkit</artifactId>
@@ -339,7 +285,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -350,34 +295,55 @@
 
         <dependency>
             <groupId>com.huawei.boostkit</groupId>
-            <artifactId>boostkit-omnidata-client</artifactId>
+            <artifactId>boostkit-omnidata-server</artifactId>
             <version>1.0.0</version>
             <classifier>${dep.os.arch}</classifier>
             <exclusions>
                 <exclusion>
-                    <groupId>com.google.code.gson</groupId>
-                    <artifactId>gson</artifactId>
+                    <groupId>org.sonatype.sisu</groupId>
+                    <artifactId>sisu-guice</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.google.errorprone</groupId>
-                    <artifactId>error_prone_annotations</artifactId>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-classic</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>animal-sniffer-annotations</artifactId>
+                    <groupId>io.hetu.core</groupId>
+                    <artifactId>presto-parser</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.hetu.core</groupId>
+                    <artifactId>presto-main</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>io.airlift</groupId>
                     <artifactId>configuration</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>node</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>bytecode</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>discovery</artifactId>
+                </exclusion>
+                <exclusion>
                     <artifactId>log4j</artifactId>
                     <groupId>log4j</groupId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>guava</artifactId>
-                    <groupId>com.google.guava</groupId>
+                    <groupId>org.apache.curator</groupId>
+                    <artifactId>curator-framework</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.apache.curator</groupId>
+                    <artifactId>curator-recipes</artifactId>
+                </exclusion>
+
                 <exclusion>
                     <groupId>com.fasterxml.jackson.core</groupId>
                     <artifactId>jackson-databind</artifactId>
@@ -387,185 +353,52 @@
                     <artifactId>jackson-core</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>snappy-java</artifactId>
-                    <groupId>org.xerial.snappy</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>slf4j-api</artifactId>
                     <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>zookeeper</artifactId>
                     <groupId>org.apache.zookeeper</groupId>
+                    <artifactId>zookeeper</artifactId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                    <groupId>org.slf4j</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>hive-storage-api</artifactId>
-                    <groupId>org.apache.hive</groupId>
-                </exclusion>
-                <exclusion>
+                    <groupId>org.glassfish.jersey.core</groupId>
                     <artifactId>jersey-common</artifactId>
-                    <groupId>org.glassfish.jersey.core</groupId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.glassfish.jersey.core</groupId>
                     <artifactId>jersey-server</artifactId>
-                    <groupId>org.glassfish.jersey.core</groupId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>jersey-container-servlet-core</artifactId>
-                    <groupId>org.glassfish.jersey.containers</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>jul-to-slf4j</artifactId>
-                    <groupId>org.slf4j</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>javassist</artifactId>
-                    <groupId>org.javassist</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>arrow-vector</artifactId>
-                    <groupId>org.apache.arrow</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>arrow-memory</artifactId>
-                    <groupId>org.apache.arrow</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>hadoop-hdfs</artifactId>
-                    <groupId>org.apache.hadoop</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>hadoop-mapreduce-client-core</artifactId>
-                    <groupId>org.apache.hadoop</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>hadoop-common</artifactId>
-                    <groupId>org.apache.hadoop</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>slf4j-log4j12</artifactId>
-                    <groupId>org.slf4j</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>leveldbjni-all</artifactId>
-                    <groupId>org.fusesource.leveldbjni</groupId>
-                </exclusion>
-                <exclusion>
+                    <groupId>org.apache.spark</groupId>
                     <artifactId>spark-catalyst_2.12</artifactId>
-                    <groupId>org.apache.spark</groupId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.spark</groupId>
                     <artifactId>spark-core_2.12</artifactId>
-                    <groupId>org.apache.spark</groupId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.spark</groupId>
                     <artifactId>spark-kvstore_2.12</artifactId>
-                    <groupId>org.apache.spark</groupId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.spark</groupId>
                     <artifactId>spark-launcher_2.12</artifactId>
-                    <groupId>org.apache.spark</groupId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.spark</groupId>
                     <artifactId>spark-sketch_2.12</artifactId>
-                    <groupId>org.apache.spark</groupId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.spark</groupId>
                     <artifactId>spark-sql_2.12</artifactId>
-                    <groupId>org.apache.spark</groupId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.apache.spark</groupId>
                     <artifactId>spark-tags_2.12</artifactId>
-                    <groupId>org.apache.spark</groupId>
                 </exclusion>
                 <exclusion>
-                    <artifactId>unused</artifactId>
-                    <groupId>org.spark-project.spark</groupId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.datatype</groupId>
-                    <artifactId>jackson-datatype-jdk8</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.datatype</groupId>
-                    <artifactId>jackson-datatype-jsr310</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.datatype</groupId>
-                    <artifactId>jackson-datatype-guava</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.datatype</groupId>
-                    <artifactId>jackson-datatype-joda</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.module</groupId>
-                    <artifactId>jackson-module-parameter-names</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.huawei.boostkit</groupId>
-            <artifactId>boostkit-omnidata-core</artifactId>
-            <version>1.0.0</version>
-            <classifier>${dep.os.arch}</classifier>
-            <exclusions>
-                <exclusion>
-                    <artifactId>guava</artifactId>
-                    <groupId>com.google.guava</groupId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>slf4j-log4j12</artifactId>
-                    <groupId>org.slf4j</groupId>
-                </exclusion>
-                <exclusion>
-                    <artifactId>logback-classic</artifactId>
-                    <groupId>ch.qos.logback</groupId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>configuration</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-databind</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.datatype</groupId>
-                    <artifactId>jackson-datatype-jdk8</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.datatype</groupId>
-                    <artifactId>jackson-datatype-jsr310</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.datatype</groupId>
-                    <artifactId>jackson-datatype-guava</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.datatype</groupId>
-                    <artifactId>jackson-datatype-joda</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.module</groupId>
-                    <artifactId>jackson-module-parameter-names</artifactId>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-analyzers-common</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
