@@ -10,8 +10,7 @@
     <version>1.0.0</version>
 
     <modules>
-        <module>core</module>
-        <module>client</module>
+        <module>server</module>
     </modules>
 
     <properties>
@@ -23,13 +22,7 @@
         <dependencies>
             <dependency>
                 <groupId>com.huawei.boostkit</groupId>
-                <artifactId>boostkit-omnidata-client</artifactId>
-                <version>${project.version}</version>
-                <classifier>${dep.os.arch}</classifier>
-            </dependency>
-            <dependency>
-                <groupId>com.huawei.boostkit</groupId>
-                <artifactId>boostkit-omnidata-core</artifactId>
+                <artifactId>boostkit-omnidata-server</artifactId>
                 <version>${project.version}</version>
                 <classifier>${dep.os.arch}</classifier>
             </dependency>

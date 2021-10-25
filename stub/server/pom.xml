@@ -10,11 +10,11 @@
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
+    <artifactId>boostkit-omnidata-server</artifactId>
     <packaging>jar</packaging>
-    <artifactId>boostkit-omnidata-core</artifactId>
 
     <properties>
-        <dep.hetu.version>1.4.0-SNAPSHOT</dep.hetu.version>
+        <dep.hetu.version>1.4.0</dep.hetu.version>
         <dep.bouncycastle.version>1.68</dep.bouncycastle.version>
         <dep.melloware.version>1.9.3</dep.melloware.version>
         <dep.commons.codc.version>1.14</dep.commons.codc.version>
