@@ -58,7 +58,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
-import static io.prestosql.spi.HostAddress.fromParts;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -163,12 +162,11 @@ public class OmniDataNodeManager
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
             String localHdfsIpAddress = service.getProperties().get("local.hdfs.server.address");
-            String grpcPort = service.getProperties().get("grpc.server.port");
             String runningTaskNumber = service.getProperties().get("runningTaskNumber");
             String maxTaskNumber = service.getProperties().get("maxTaskNumber");
             if (uri.getHost() != null && localHdfsIpAddress != null) {
                 try {
-                    OmniDataNodeStatus nodeStatus = new OmniDataNodeStatus(fromParts(uri.getHost(), Integer.parseInt(grpcPort)).toString(),
+                    OmniDataNodeStatus nodeStatus = new OmniDataNodeStatus(uri.getHost(),
                             Integer.parseInt(runningTaskNumber), Integer.parseInt(maxTaskNumber));
                     allNodes.put(localHdfsIpAddress, nodeStatus);
                 }
