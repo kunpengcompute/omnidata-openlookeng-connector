@@ -4,7 +4,7 @@
 
 OmniData Connector is a data source connector developed for openLooKeng. 
 
-The OmniData connector allows querying data sources where c Server is deployed. It pushes down some operators such as filter to the OmniData service close to the storage to improve the performance of storage-computing-separated system.
+The OmniData connector allows querying data sources where OmniData Server is deployed. It pushes down some operators such as filter to the OmniData service close to the storage to improve the performance of storage-computing-separated system.
 
 ## Building OmniData Connector
 
