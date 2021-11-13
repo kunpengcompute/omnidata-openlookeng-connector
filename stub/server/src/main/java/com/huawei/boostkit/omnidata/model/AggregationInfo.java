@@ -14,6 +14,8 @@
  */
 package com.huawei.boostkit.omnidata.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import io.prestosql.spi.relation.CallExpression;
 import io.prestosql.spi.relation.RowExpression;
@@ -25,15 +27,20 @@ import java.util.Map;
 public class AggregationInfo {
     private final Map<String, AggregateFunction> aggregations;
     List<RowExpression> groupingKeys;
-    public AggregationInfo(Map<String, AggregateFunction> aggregations , List<RowExpression> groupingKeys) {
+    @JsonCreator
+    public AggregationInfo(
+            @JsonProperty("aggregations") Map<String, AggregateFunction> aggregations,
+            @JsonProperty("groupingKeys") List<RowExpression> groupingKeys) {
         this.aggregations = aggregations;
         this.groupingKeys = groupingKeys;
     }
 
+    @JsonProperty
     public Map<String, AggregateFunction> getAggregations() {
         return aggregations;
     }
 
+    @JsonProperty
     public List<RowExpression> getGroupingKeys() {
         return groupingKeys;
     }
@@ -58,13 +65,18 @@ public class AggregationInfo {
     public static class AggregateFunction {
         private CallExpression callExpression;
         boolean isDistinct;
-        public AggregateFunction(CallExpression callExpression, boolean isDistinct) {
+        @JsonCreator
+        public AggregateFunction(
+                @JsonProperty("callExpression") CallExpression callExpression,
+                @JsonProperty("isDistinct") boolean isDistinct) {
             this.callExpression = callExpression;
             this.isDistinct = isDistinct;
         }
+        @JsonProperty
         public CallExpression getCall() {
             return callExpression;
         }
+        @JsonProperty
         public boolean isDistinct() {
             return isDistinct;
         }

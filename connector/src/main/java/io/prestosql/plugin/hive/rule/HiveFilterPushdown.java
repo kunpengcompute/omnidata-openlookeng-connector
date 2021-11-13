@@ -269,7 +269,7 @@ public class HiveFilterPushdown
                 allColumns, allColumnTypes, symbolsMap, formSymbolsLayout(allColumns));
         Estimate filteredRowCount = filterStatistics.getRowCount().isUnknown() ? statistics.getRowCount() : filterStatistics.getRowCount();
         double filterFactor = filteredRowCount.getValue() / statistics.getRowCount().getValue();
-        if (filterFactor <= HiveSessionProperties.getMinFilterOffloadFactor(session)) {
+        if (filterFactor <= HiveSessionProperties.getFilterOffloadFactor(session)) {
             log.info("Offloading: table %s, size[%d], predicate[%s], filter factor[%.2f%%].",
                     tableHandle.getTableName(), (long) statistics.getRowCount().getValue(),
                     predicate.toString(), filterFactor * 100);

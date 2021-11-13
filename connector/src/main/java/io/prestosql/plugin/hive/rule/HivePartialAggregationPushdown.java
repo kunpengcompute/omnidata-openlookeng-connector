@@ -256,7 +256,7 @@ public class HivePartialAggregationPushdown
             }
 
             double aggregationFactor = getAggregationFactor(partialAggregationNode, session, transactionManager);
-            if (aggregationFactor > HiveSessionProperties.getMinAggregatorOffloadFactor(session)) {
+            if (aggregationFactor > HiveSessionProperties.getAggregatorOffloadFactor(session)) {
                 return Optional.empty();
             }
 
