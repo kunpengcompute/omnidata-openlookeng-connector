@@ -35,7 +35,6 @@ import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.PrestoException;
 
 import javax.annotation.PreDestroy;
@@ -241,11 +240,6 @@ public class OmniDataNodeManager
     public synchronized Map<String, OmniDataNodeStatus> getAllNodes()
     {
         return allNodes;
-    }
-
-    public synchronized OmniDataNodeStatus getNode(HostAddress host)
-    {
-        return allNodes.get(host);
     }
 
     private class OmniDataNodeManagerResponseHandler<T>
